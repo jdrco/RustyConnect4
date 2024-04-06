@@ -2,8 +2,8 @@ use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
 
-const ROWS: usize = 6;
-const COLS: usize = 7;
+const ROWS: usize = 4;
+const COLS: usize = 6;
 
 #[function_component]
 pub fn TootAndOttoBoard() -> Html {
