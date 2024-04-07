@@ -1,3 +1,4 @@
+use crate::constant::{HEADER, RED_BAR};
 use yew::prelude::*;
 use yew::{function_component, html};
 
@@ -5,7 +6,7 @@ const ROWS: usize = 6;
 const COLS: usize = 7;
 
 #[function_component]
-pub fn Connect4board() -> Html {
+pub fn Connect4Board() -> Html {
     let board = use_state(|| vec![vec![0; COLS]; ROWS]);
     let player_turn = use_state(|| true);
 
@@ -24,9 +25,8 @@ pub fn Connect4board() -> Html {
 
     html! {
         <div id="">
-
-            <div class="text-4xl font-bold"><b>{"Enter Your Name"}</b></div>
-            <div class="bg-red-500 w-16 h-4 rounded-md"></div>
+            <div class={HEADER}><b>{"Enter Your Name"}</b></div>
+            <div class={RED_BAR}></div>
             <div class="col-md-offset-4 col-md-8">
             <form>
                 <div class="col-md-offset-3 col-md-8">
@@ -61,6 +61,28 @@ pub fn Connect4board() -> Html {
                     </div>
                 })}
             </div>
+            </div>
+        </div>
+    }
+}
+
+#[function_component]
+pub fn Connect4Rules() -> Html {
+    html! {
+        <div id="main">
+            <div class="container mx-auto mt-12" id="services">
+                <h5 class={HEADER}><b>{"How to Play Connect 4"}</b></h5>
+                <div class={RED_BAR}></div>
+                <p>{"Connect Four is a two-player connection game in which the players take turns dropping colored discs from the top into a seven-column, six-row vertically suspended grid. The objective of the game is to be the first to form a horizontal, vertical, or diagonal line of four of one's own discs."}</p>
+                <br/>
+                <div><h5>{"To play Connect 4 follow the following steps:"}</h5></div>
+                <ul>
+                    <li>{"A new game describes discs of which color belongs to which player"}</li>
+                    <li>{"Click on the desired column on the game board to place your disc"}</li>
+                    <li>{"Try to connect 4 of your colored discs either horizontally or vertically or diagonally"}</li>
+                </ul>
+                <br/>
+                <p>{"For More information on Connect 4 click "}<a href="https://en.wikipedia.org/wiki/Connect_Four">{"here"}</a></p>
             </div>
         </div>
     }
