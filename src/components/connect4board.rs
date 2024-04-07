@@ -1,13 +1,10 @@
-use crate::constant::{HEADER, RED_BAR};
+use crate::constant::{DEFAULT_C4_COLS, DEFAULT_C4_ROWS, HEADER, RED_BAR};
 use yew::prelude::*;
 use yew::{function_component, html};
 
-const ROWS: usize = 6;
-const COLS: usize = 7;
-
 #[function_component]
 pub fn Connect4Board() -> Html {
-    let board = use_state(|| vec![vec![0; COLS]; ROWS]);
+    let board = use_state(|| vec![vec![0; DEFAULT_C4_COLS]; DEFAULT_C4_ROWS]);
     let player_turn = use_state(|| true);
 
     let handle_click = {
@@ -15,7 +12,7 @@ pub fn Connect4Board() -> Html {
         let player_turn = player_turn.clone();
         Callback::from(move |x: usize| {
             let mut new_board = (*board).clone();
-            if let Some(y) = (0..ROWS).rev().find(|&y| new_board[y][x] == 0) {
+            if let Some(y) = (0..DEFAULT_C4_ROWS).rev().find(|&y| new_board[y][x] == 0) {
                 new_board[y][x] = if *player_turn { 1 } else { 2 };
                 board.set(new_board);
                 player_turn.set(!*player_turn);
@@ -44,9 +41,9 @@ pub fn Connect4Board() -> Html {
                 <br/>
             </div>
             <div id="gameboard" class="w-[500px] border border-black bg-blue-500">
-                { for (0..ROWS).map(|y| html! {
+                { for (0..DEFAULT_C4_ROWS).map(|y| html! {
                     <div class="flex justify-center items-center gap-4 my-4">
-                        { for (0..COLS).map(|x| html! {
+                        { for (0..DEFAULT_C4_COLS).map(|x| html! {
                             <div onclick={handle_click.reform(move |_| x)}
                                  class={
                                     let base_class = "w-12 h-12 rounded-full flex items-center justify-center";
