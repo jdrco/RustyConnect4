@@ -1,3 +1,4 @@
+use crate::components::burgermenu::BurgerMenu;
 use crate::components::connect4board::{Connect4Board, Connect4Rules};
 use crate::components::tootandottoboard::{TootAndOttoBoard, TootAndOttoRules};
 use yew::prelude::*;
@@ -22,6 +23,7 @@ pub fn App() -> Html {
             <button onclick={toggle_theme} class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-700 focus:outline-none">
                 {"Toggle Theme"}
             </button>
+            <BurgerMenu />
             <Connect4Rules />
             <Connect4Board />
             <TootAndOttoRules />

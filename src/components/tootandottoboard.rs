@@ -1,14 +1,11 @@
-use crate::constant::{HEADER, RED_BAR};
+use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
 
-const ROWS: usize = 4;
-const COLS: usize = 6;
-
 #[function_component]
 pub fn TootAndOttoBoard() -> Html {
-    let board = use_state(|| vec![vec![(' ', 0); COLS]; ROWS]);
+    let board = use_state(|| vec![vec![(' ', 0); DEFAULT_OT_COLS]; DEFAULT_OT_ROWS]);
     let player_turn = use_state(|| 1);
     let player_choice = use_state(|| 'T');
 
@@ -18,7 +15,10 @@ pub fn TootAndOttoBoard() -> Html {
         let player_choice = player_choice.clone();
         Callback::from(move |x: usize| {
             let mut new_board = (*board).clone();
-            if let Some(y) = (0..ROWS).rev().find(|&y| new_board[y][x].0 == ' ') {
+            if let Some(y) = (0..DEFAULT_OT_ROWS)
+                .rev()
+                .find(|&y| new_board[y][x].0 == ' ')
+            {
                 new_board[y][x] = (*player_choice, *player_turn);
                 board.set(new_board);
                 player_turn.set(if *player_turn == 1 { 2 } else { 1 });
@@ -64,9 +64,9 @@ pub fn TootAndOttoBoard() -> Html {
                 <br/>
             </div>
             <div id="gameboard" class="w-[500px] border border-black bg-blue-500">
-                { for (0..ROWS).map(|y| html! {
+                { for (0..DEFAULT_OT_ROWS).map(|y| html! {
                     <div class="flex justify-center items-center gap-4 my-4">
-                        { for (0..COLS).map(|x| html! {
+                        { for (0..DEFAULT_OT_COLS).map(|x| html! {
                             <div onclick={handle_click.reform(move |_| x)}
                                  class={
                                     let base_class = "w-12 h-12 rounded-full flex items-center justify-center text-xl text-white";
