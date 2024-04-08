@@ -63,17 +63,17 @@ pub fn TootAndOttoBoard() -> Html {
                 <small>{"Choose 'T' or 'O' to play."}</small>
                 <br/>
             </div>
-            <div id="gameboard" class="w-[500px] border border-black bg-blue-500">
+            <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
                 { for (0..DEFAULT_OT_ROWS).map(|y| html! {
                     <div class="flex justify-center items-center gap-4 my-4">
                         { for (0..DEFAULT_OT_COLS).map(|x| html! {
                             <div onclick={handle_click.reform(move |_| x)}
                                  class={
-                                    let base_class = "w-12 h-12 rounded-full flex items-center justify-center text-xl text-white";
+                                    let base_class = "w-12 h-12 rounded-full flex items-center justify-center text-xl text-black";
                                     let color_class = if board[y][x].1 == 1 {
-                                        "bg-red-500"
+                                        "bg-chipPrimaryBg"
                                     } else if board[y][x].1 == 2 {
-                                        "bg-yellow-500"
+                                        "bg-chipSecondaryBg"
                                     } else {
                                         "bg-white"
                                     };

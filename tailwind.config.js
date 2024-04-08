@@ -1,15 +1,22 @@
 module.exports = {
-    mode: 'jit',
-    content: {
-      files: ['src/**/*.rs', 'index.html'],
+  mode: 'jit',
+  content: {
+    files: ['src/**/*.rs', 'index.html'],
+  },
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        neutralBg: 'var(--neutralBg)',
+        onNeutralBg: 'var(--onNeutralBg)',
+        boardPrimaryBg: 'var(--boardPrimaryBg)',
+        chipPrimaryBg: 'var(--chipPrimaryBg)',
+        chipSecondaryBg: 'var(--chipSecondaryBg)',
+      },
     },
-    darkMode: 'media', // 'media' or 'class'
-    theme: {
-      extend: {},
-    },
-    variants: {
-      extend: {},
-    },
-    plugins: [],
-  };
-  
+  },
+  variants: {
+    extend: {},
+  },
+  plugins: [],
+};
