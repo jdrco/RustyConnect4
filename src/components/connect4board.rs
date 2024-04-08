@@ -24,7 +24,7 @@ pub fn Connect4Board() -> Html {
     };
 
     html! {
-        <div id="">
+        <>
             <div class={HEADER}><b>{"Enter Your Name"}</b></div>
             <div class={RED_BAR}></div>
             <div class="col-md-offset-4 col-md-8">
@@ -43,7 +43,7 @@ pub fn Connect4Board() -> Html {
                 <small>{"Disc Colors: Red (You) vs Yellow (Computer)"}</small>
                 <br/>
             </div>
-            <div id="gameboard" class="w-[500px] border border-black bg-blue-500">
+            <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
                 { for (0..ROWS).map(|y| html! {
                     <div class="flex justify-center items-center gap-4 my-4">
                         { for (0..COLS).map(|x| html! {
@@ -51,8 +51,8 @@ pub fn Connect4Board() -> Html {
                                  class={
                                     let base_class = "w-12 h-12 rounded-full flex items-center justify-center";
                                     match board[y][x] {
-                                        1 => format!("{} {}", base_class, "bg-red-500"),
-                                        2 => format!("{} {}", base_class, "bg-yellow-500"),
+                                        1 => format!("{} {}", base_class, "bg-chipPrimaryBg"),
+                                        2 => format!("{} {}", base_class, "bg-chipSecondaryBg"),
                                         _ => format!("{} {}", base_class, "bg-white"),
                                     }
                                  }>
@@ -62,7 +62,7 @@ pub fn Connect4Board() -> Html {
                 })}
             </div>
             </div>
-        </div>
+        </>
     }
 }
 
