@@ -1,5 +1,22 @@
 use yew::prelude::*;
 use yew::{function_component, html, Callback};
+use yew_router::prelude::*;
+
+#[derive(Clone, Routable, PartialEq)]
+enum Route {
+    #[at("/")]
+    Home,
+    #[at("/connect4")]
+    Connect4Board,
+    #[at("/connect4rules")]
+    Connect4Rules,
+    #[at("/tootandottoboard")]
+    TootAndOttoBoard,
+    #[at("/tootandottorules")]
+    TootAndOttoRules,
+    #[at("/404")]
+    NotFound,
+}
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct Props {
@@ -9,6 +26,47 @@ pub struct Props {
 
 #[function_component(BurgerMenu)]
 pub fn burger_menu(props: &Props) -> Html {
+    let navigator = use_navigator().unwrap();
+
+    let go_home_button = {
+        let navigator = navigator.clone();
+        let onclick = Callback::from(move |_| navigator.push(&Route::Home));
+        html! {
+            <button {onclick}>{"Home"}</button>
+        }
+    };
+
+    let go_to_connect_4_board_button = {
+        let navigator = navigator.clone();
+        let onclick = Callback::from(move |_| navigator.push(&Route::Connect4Board));
+        html! {
+            <button {onclick}>{"Connect 4"}</button>
+        }
+    };
+
+    let go_to_connect_4_rules_button = {
+        let navigator = navigator.clone();
+        let onclick = Callback::from(move |_| navigator.push(&Route::Connect4Rules));
+        html! {
+            <button {onclick}>{"Connect 4 Rules"}</button>
+        }
+    };
+
+    let go_to_toot_and_otto_board_button = {
+        let navigator = navigator.clone();
+        let onclick = Callback::from(move |_| navigator.push(&Route::TootAndOttoBoard));
+        html! {
+            <button {onclick}>{"TOOT and OTTO"}</button>
+        }
+    };
+
+    let go_to_toot_and_otto_board_rules = {
+        let onclick = Callback::from(move |_| navigator.push(&Route::TootAndOttoRules));
+        html! {
+            <button {onclick}>{"TOOT and OTTO Rules"}</button>
+        }
+    };
+
     let is_hidden = use_state(|| props.is_hidden);
 
     let toggle_visibility = {
@@ -27,9 +85,11 @@ pub fn burger_menu(props: &Props) -> Html {
             </button>
             <div class="md:flex md:items-center md:justify-between ">
                 <div class={format!("flex flex-col {}", if *is_hidden {"hidden"} else {""})}>
-                    <a href="#" class="block mt-4 md:inline-block md:mt-0 text-gray-500 hover:text-black">{"Home"}</a>
-                    <a href="#" class="block mt-4 md:inline-block md:mt-0 text-gray-500 hover:text-black">{"About"}</a>
-                    <a href="#" class="block mt-4 md:inline-block md:mt-0 text-gray-500 hover:text-black">{"Contact"}</a>
+                    {go_home_button}
+                    {go_to_connect_4_board_button}
+                    {go_to_connect_4_rules_button}
+                    {go_to_toot_and_otto_board_button}
+                    {go_to_toot_and_otto_board_rules}
                 </div>
             </div>
         </div>
