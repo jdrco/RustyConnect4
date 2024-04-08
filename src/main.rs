@@ -90,6 +90,15 @@ impl App {
                         <Link<Route> classes={classes!("navbar-item")} to={Route::Connect4Board}>
                             { "Connect 4 Board" }
                         </Link<Route>>
+                        <Link<Route> classes={classes!("navbar-item")} to={Route::Connect4Rules}>
+                            { "Connect 4 Rules" }
+                        </Link<Route>>
+                        <Link<Route> classes={classes!("navbar-item")} to={Route::TootAndOttoBoard}>
+                            { "TOOT and OTTO Board" }
+                        </Link<Route>>
+                        <Link<Route> classes={classes!("navbar-item")} to={Route::TootAndOttoRules}>
+                            { "TOOT and OTTO Board" }
+                        </Link<Route>>
                     </div>
                 </div>
             </nav>
@@ -123,7 +132,3 @@ fn switch(routes: Route) -> Html {
 fn main() {
     yew::Renderer::<App>::new().render();
 }
-
-// fn main() {
-//     yew::Renderer::<App>::new().render();
-// }
