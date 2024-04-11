@@ -17,8 +17,9 @@ pub fn Connect4Board() -> Html {
     let winner = use_state(|| None::<usize>);
     let difficulty = use_state(|| "Easy".to_string());
     let last_move = use_state(|| None::<(usize, usize)>);
+    let is_user_turn = use_state(|| true);
 
-    let make_computer_move = |board: &mut Vec<Vec<usize>>, difficulty: &String| {
+    let make_computer_move = |board: &mut Vec<Vec<usize>>, difficulty: &String| -> Option<(usize, usize)>{
         if *difficulty == "Easy" {
             let available_cols: Vec<usize> = (0..DEFAULT_C4_COLS)
                 .filter(|&col| board[0][col] == 0)
@@ -27,6 +28,7 @@ pub fn Connect4Board() -> Html {
                 if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&r| board[r][col] == 0) {
                     log!("Computer picked column:", col);
                     board[row][col] = COMPUTER;
+                    return Some((col, row));
                 }
             }
         } else {
@@ -34,8 +36,10 @@ pub fn Connect4Board() -> Html {
             if let Some(row) = get_next_open_row(board, best_col) {
                 log!("Computer picked column:", best_col);
                 board[row][best_col] = COMPUTER;
+                return Some((best_col, row));
             }
         }
+        None
     };
 
     let handle_user_move = {
@@ -43,14 +47,20 @@ pub fn Connect4Board() -> Html {
         let winner = winner.clone();
         let difficulty = difficulty.clone();
         let last_move = last_move.clone();
+        let is_user_turn = is_user_turn.clone();
 
-        Callback::from(move |x: usize| {
+        Callback::from(move |col: usize| {
+            if !*is_user_turn {
+                return;
+            }
             let mut new_board = (*board).clone();
-            if let Some(y) = (0..DEFAULT_C4_ROWS).rev().find(|&y| new_board[y][x] == 0) {
-                log!("User picked column:", x);
-                new_board[y][x] = USER;
+            if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&row| new_board[row][col] == 0) {
+                log!("User picked column:", col);
+
+                new_board[row][col] = USER;
                 board.set(new_board.clone());
-                last_move.set(Some((x, y)));
+                last_move.set(Some((col, row)));
+                is_user_turn.set(false);
 
                 if let Some(winner_player) = check_winner(&new_board) {
                     winner.set(Some(winner_player));
@@ -59,13 +69,18 @@ pub fn Connect4Board() -> Html {
                     let difficulty = difficulty.clone();
                     let board = board.clone();
                     let winner = winner.clone();
+                    let last_move = last_move.clone();
+                    let is_user_turn = is_user_turn.clone();
                     let timeout = Timeout::new(500, move || {
                         let mut new_board = new_board;
-                        make_computer_move(&mut new_board, &difficulty);
+                        if let Some((col, row)) = make_computer_move(&mut new_board, &difficulty) {
+                            last_move.set(Some((col, row)));
+                        }
                         if let Some(winner_player) = check_winner(&new_board) {
                             winner.set(Some(winner_player));
                         }
                         board.set(new_board);
+                        is_user_turn.set(true);
                     });
                     timeout.forget();
                 }
