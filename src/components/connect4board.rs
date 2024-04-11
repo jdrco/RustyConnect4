@@ -16,6 +16,7 @@ pub fn Connect4Board() -> Html {
     let board = use_state(|| vec![vec![0; DEFAULT_C4_COLS]; DEFAULT_C4_ROWS]);
     let winner = use_state(|| None::<usize>);
     let difficulty = use_state(|| "Easy".to_string());
+    let last_move = use_state(|| None::<(usize, usize)>);
 
     let make_computer_move = |board: &mut Vec<Vec<usize>>, difficulty: &String| {
         if *difficulty == "Easy" {
@@ -25,7 +26,7 @@ pub fn Connect4Board() -> Html {
             if let Some(&col) = available_cols.choose(&mut rand::thread_rng()) {
                 if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&r| board[r][col] == 0) {
                     log!("Computer picked column:", col);
-                    board[row][col] = 2;
+                    board[row][col] = COMPUTER;
                 }
             }
         } else {
@@ -41,12 +42,15 @@ pub fn Connect4Board() -> Html {
         let board = board.clone();
         let winner = winner.clone();
         let difficulty = difficulty.clone();
+        let last_move = last_move.clone();
+
         Callback::from(move |x: usize| {
             let mut new_board = (*board).clone();
             if let Some(y) = (0..DEFAULT_C4_ROWS).rev().find(|&y| new_board[y][x] == 0) {
                 log!("User picked column:", x);
                 new_board[y][x] = USER;
                 board.set(new_board.clone());
+                last_move.set(Some((x, y)));
 
                 if let Some(winner_player) = check_winner(&new_board) {
                     winner.set(Some(winner_player));
@@ -55,7 +59,7 @@ pub fn Connect4Board() -> Html {
                     let difficulty = difficulty.clone();
                     let board = board.clone();
                     let winner = winner.clone();
-                    let timeout = Timeout::new(100, move || {
+                    let timeout = Timeout::new(500, move || {
                         let mut new_board = new_board;
                         make_computer_move(&mut new_board, &difficulty);
                         if let Some(winner_player) = check_winner(&new_board) {
@@ -102,9 +106,11 @@ pub fn Connect4Board() -> Html {
                                 <div onclick={handle_user_move.reform(move |_| x)}
                                     class={
                                         let base_class = "w-12 h-12 rounded-full flex items-center justify-center";
+                                        let is_last_move = *last_move == Some((x, y));
+                                        let animation_class = if is_last_move { "animate-drop" } else { "" };
                                         match board[y][x] {
-                                            1 => format!("{} {}", base_class, "bg-chipPrimaryBg"),
-                                            2 => format!("{} {}", base_class, "bg-chipSecondaryBg"),
+                                            1 => format!("{} {} {}", base_class, animation_class, "bg-chipPrimaryBg"),
+                                            2 => format!("{} {} {}", base_class, animation_class, "bg-chipSecondaryBg"),
                                             _ => format!("{} {}", base_class, "bg-white"),
                                         }
                                     }>

@@ -71,3 +71,19 @@
     background-color: rebeccapurple;
     /* Change background color on hover */
 }
+
+@keyframes drop {
+    0% {
+        transform: translateY(-100px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.animate-drop {
+    animation: drop 0.5s ease-out;
+}
+
