@@ -4,6 +4,7 @@ use gloo_console::log;
 use rand::prelude::*;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
+use gloo_timers::callback::Timeout;
 
 use std::cmp::{max, min};
 
@@ -45,18 +46,25 @@ pub fn Connect4Board() -> Html {
             if let Some(y) = (0..DEFAULT_C4_ROWS).rev().find(|&y| new_board[y][x] == 0) {
                 log!("User picked column:", x);
                 new_board[y][x] = USER;
+                board.set(new_board.clone());
 
-                // Check if user wins after their move
                 if let Some(winner_player) = check_winner(&new_board) {
                     winner.set(Some(winner_player));
                 } else {
-                    // Make computer move only if there is no winner yet
-                    make_computer_move(&mut new_board, &difficulty.clone());
-                    if let Some(winner_player) = check_winner(&new_board) {
-                        winner.set(Some(winner_player));
-                    }
+                    let new_board = new_board.clone();
+                    let difficulty = difficulty.clone();
+                    let board = board.clone();
+                    let winner = winner.clone();
+                    let timeout = Timeout::new(100, move || {
+                        let mut new_board = new_board;
+                        make_computer_move(&mut new_board, &difficulty);
+                        if let Some(winner_player) = check_winner(&new_board) {
+                            winner.set(Some(winner_player));
+                        }
+                        board.set(new_board);
+                    });
+                    timeout.forget();
                 }
-                board.set(new_board);
             }
         })
     };
