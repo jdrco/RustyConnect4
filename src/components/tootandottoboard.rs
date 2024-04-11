@@ -89,6 +89,8 @@ pub fn TootAndOttoBoard() -> Html {
     }
 }
 
+// Add code here
+
 #[function_component]
 pub fn TootAndOttoRules() -> Html {
     html! {

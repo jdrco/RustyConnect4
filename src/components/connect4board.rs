@@ -1,6 +1,8 @@
 use crate::constant::{DEFAULT_C4_COLS, DEFAULT_C4_ROWS, HEADER, RED_BAR};
 use gloo_console::log;
 use rand::prelude::*;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use yew::prelude::*;
 
 use std::cmp::{max, min};
@@ -129,7 +131,12 @@ fn check_winner(board: &Vec<Vec<usize>>) -> Option<usize> {
                     let mut count = 1;
                     let mut nx = x as isize + dx;
                     let mut ny = y as isize + dy;
-                    while nx >= 0 && nx < DEFAULT_C4_COLS as isize && ny >= 0 && ny < DEFAULT_C4_ROWS as isize && board[ny as usize][nx as usize] == current {
+                    while nx >= 0
+                        && nx < DEFAULT_C4_COLS as isize
+                        && ny >= 0
+                        && ny < DEFAULT_C4_ROWS as isize
+                        && board[ny as usize][nx as usize] == current
+                    {
                         count += 1;
                         if count == 4 {
                             return Some(current);
@@ -145,7 +152,9 @@ fn check_winner(board: &Vec<Vec<usize>>) -> Option<usize> {
 }
 
 fn get_valid_locations(board: &Vec<Vec<usize>>) -> Vec<usize> {
-    (0..DEFAULT_C4_COLS).filter(|&col| board[0][col] == 0).collect()
+    (0..DEFAULT_C4_COLS)
+        .filter(|&col| board[0][col] == 0)
+        .collect()
 }
 
 fn get_next_open_row(board: &Vec<Vec<usize>>, col: usize) -> Option<usize> {
@@ -153,7 +162,7 @@ fn get_next_open_row(board: &Vec<Vec<usize>>, col: usize) -> Option<usize> {
 }
 
 fn drop_piece(board: &mut Vec<Vec<usize>>, row: usize, col: usize, piece: usize) {
-    if row < DEFAULT_C4_ROWS {
+    if row < DEFAULT_C4_ROWS && col < DEFAULT_C4_COLS {
         board[row][col] = piece;
     }
 }
@@ -166,8 +175,9 @@ fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
     let mut score = 0;
     let center_col = DEFAULT_C4_COLS / 2;
     let center_count = board.iter().map(|row| row[center_col] == piece).count() as isize;
-    score += center_count * 100;
+    score += center_count * 3; // Adjust the weight as needed
 
+    // Score Horizontal
     for row in board {
         for col in 0..DEFAULT_C4_COLS - 3 {
             let window = &row[col..col + 4];
@@ -175,6 +185,7 @@ fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
         }
     }
 
+    // Score Vertical
     for col in 0..DEFAULT_C4_COLS {
         for row in 0..DEFAULT_C4_ROWS - 3 {
             let window = (0..4).map(|i| board[row + i][col]).collect::<Vec<_>>();
@@ -182,6 +193,7 @@ fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
         }
     }
 
+    // Score Positive Diagonal
     for row in 0..DEFAULT_C4_ROWS - 3 {
         for col in 0..DEFAULT_C4_COLS - 3 {
             let window = (0..4).map(|i| board[row + i][col + i]).collect::<Vec<_>>();
@@ -189,6 +201,7 @@ fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
         }
     }
 
+    // Score Negative Diagonal
     for row in 3..DEFAULT_C4_ROWS {
         for col in 0..DEFAULT_C4_COLS - 3 {
             let window = (0..4).map(|i| board[row - i][col + i]).collect::<Vec<_>>();
@@ -199,49 +212,60 @@ fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
     score
 }
 
-fn minimax(board: &Vec<Vec<usize>>, depth: usize, mut alpha: isize, mut beta: isize, maximizing_player: bool) -> (usize, isize) {
+fn minimax(
+    board: &Vec<Vec<usize>>,
+    depth: usize,
+    mut alpha: isize,
+    mut beta: isize,
+    maximizing_player: bool,
+) -> (usize, isize) {
     if depth == 0 || is_terminal_node(board) {
-        return (0, score_position(board, if maximizing_player { 2 } else { 1 }));
+        return (
+            0,
+            score_position(board, if maximizing_player { COMPUTER } else { USER }),
+        );
     }
+
+    let valid_locations = get_valid_locations(board);
 
     if maximizing_player {
         let mut value = isize::MIN;
-        let mut best_column = 0;
-        for col in get_valid_locations(board) {
-            if let Some(row) = get_next_open_row(board, col) {
-                let mut new_board = board.clone();
-                drop_piece(&mut new_board, row, col, 2);
-                let (_, score) = minimax(&new_board, depth - 1, alpha, beta, false);
+        let mut best_column = valid_locations.get(0).copied().unwrap_or_default();
+        for col in valid_locations {
+            let mut temp_board = board.clone();
+            if let Some(row) = get_next_open_row(&temp_board, col) {
+                drop_piece(&mut temp_board, row, col, COMPUTER);
+                let (_, score) = minimax(&temp_board, depth - 1, alpha, beta, false);
                 if score > value {
                     value = score;
                     best_column = col;
                 }
-                alpha = max(alpha, value);
+                alpha = std::cmp::max(alpha, value);
                 if alpha >= beta {
                     break;
                 }
             }
         }
-        return (best_column, value);
+        (best_column, value)
     } else {
         let mut value = isize::MAX;
-        let mut best_column = 0;
-        for col in get_valid_locations(board) {
-            if let Some(row) = get_next_open_row(board, col) {
-                let mut new_board = board.clone();
-                drop_piece(&mut new_board, row, col, 1);
-                let (_, score) = minimax(&new_board, depth - 1, alpha, beta, true);
+        let mut best_column = valid_locations.get(0).copied().unwrap_or_default();
+        for col in valid_locations {
+            let mut temp_board = board.clone();
+            if let Some(row) = get_next_open_row(&temp_board, col) {
+                drop_piece(&mut temp_board, row, col, USER);
+                let (_, score) = minimax(&temp_board, depth - 1, alpha, beta, true);
                 if score < value {
                     value = score;
                     best_column = col;
                 }
-                beta = min(beta, value);
+                beta = std::cmp::min(beta, value);
                 if alpha >= beta {
                     break;
                 }
             }
         }
-        return (best_column, value);
+        (best_column, value)
     }
 }
 
@@ -251,19 +275,16 @@ fn evaluate_window(window: &[usize], piece: usize) -> isize {
     let count_piece = window.iter().filter(|&&p| p == piece).count();
     let count_empty = window.iter().filter(|&&p| p == 0).count();
 
-    match (count_piece, count_empty) {
-        (4, _) => score += 10000,
-        (3, 1) => score += 100,
-        (2, 2) => score += 10,
-        _ => (),
+    if count_piece == 4 {
+        score += 100;
+    } else if count_piece == 3 && count_empty == 1 {
+        score += 5;
+    } else if count_piece == 2 && count_empty == 2 {
+        score += 2;
     }
 
     if window.iter().filter(|&&p| p == opp_piece).count() == 3 && count_empty == 1 {
-        score -= 100;
-    }
-
-    if window.iter().filter(|&&p| p == opp_piece).count() == 4 {
-        score -= 1000;
+        score -= 4;
     }
 
     score
