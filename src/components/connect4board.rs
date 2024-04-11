@@ -3,21 +3,33 @@ use gloo_console::log;
 use rand::prelude::*;
 use yew::prelude::*;
 
+use std::cmp::{max, min};
+
+const USER: usize = 1;
+const COMPUTER: usize = 2;
+const EMPTY: usize = 0;
+const WINDOW_LENGTH: usize = 4;
+
 #[function_component]
 pub fn Connect4Board() -> Html {
     let board = use_state(|| vec![vec![0; DEFAULT_C4_COLS]; DEFAULT_C4_ROWS]);
     let winner = use_state(|| None::<usize>);
 
     let make_computer_move = |board: &mut Vec<Vec<usize>>| {
-        let available_cols: Vec<usize> = (0..DEFAULT_C4_COLS)
-            .filter(|&col| board[0][col] == 0)
-            .collect();
-
-        if let Some(&col) = available_cols.choose(&mut rand::thread_rng()) {
-            if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&r| board[r][col] == 0) {
-                log!("Computer picked column:", col);
-                board[row][col] = 2;
-            }
+        // Easy mode can just choose randomly
+        // let available_cols: Vec<usize> = (0..DEFAULT_C4_COLS)
+        //     .filter(|&col| board[0][col] == 0)
+        //     .collect();
+        // if let Some(&col) = available_cols.choose(&mut rand::thread_rng()) {
+        //     if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&r| board[r][col] == 0) {
+        //         log!("Computer picked column:", col);
+        //         board[row][col] = 2;
+        //     }
+        // }
+        let (best_col, _) = minimax(board, 4, isize::MIN, isize::MAX, true);
+        if let Some(row) = get_next_open_row(board, best_col) {
+            log!("Computer picked column:", best_col);
+            board[row][best_col] = COMPUTER;
         }
     };
 
@@ -28,7 +40,7 @@ pub fn Connect4Board() -> Html {
             let mut new_board = (*board).clone();
             if let Some(y) = (0..DEFAULT_C4_ROWS).rev().find(|&y| new_board[y][x] == 0) {
                 log!("User picked column:", x);
-                new_board[y][x] = 1;
+                new_board[y][x] = USER;
 
                 // Check if user wins after their move
                 if let Some(winner_player) = check_winner(&new_board) {
@@ -50,43 +62,43 @@ pub fn Connect4Board() -> Html {
             <div class={HEADER}><b>{"Enter Your Name"}</b></div>
             <div class={RED_BAR}></div>
             <div class="col-md-offset-4 col-md-8">
-            <form>
-                <div class="col-md-offset-3 col-md-8">
-                <input id="textbox1" type="text" placeholder="Your Name"/>
-                <button class="bg-violet-500 rounded-md p-2 text-white">
-                    {"Save"}
-                </button>
-                </div>
-            </form>
-            <div class="post">
-                <br/>
-                <h4>{"New Game: "}</h4>
-                <small>{"Disc Colors: Red (You) vs Yellow (Computer)"}</small>
-                <br/>
-            </div>
-            <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
-                { for (0..DEFAULT_C4_ROWS).map(|y| html! {
-                    <div class="flex justify-center items-center gap-4 my-4">
-                        { for (0..DEFAULT_C4_COLS).map(|x| html! {
-                            <div onclick={handle_click.reform(move |_| x)}
-                                 class={
-                                    let base_class = "w-12 h-12 rounded-full flex items-center justify-center";
-                                    match board[y][x] {
-                                        1 => format!("{} {}", base_class, "bg-chipPrimaryBg"),
-                                        2 => format!("{} {}", base_class, "bg-chipSecondaryBg"),
-                                        _ => format!("{} {}", base_class, "bg-white"),
-                                    }
-                                 }>
-                            </div>
-                        })}
+                <form>
+                    <div class="col-md-offset-3 col-md-8">
+                    <input id="textbox1" type="text" placeholder="Your Name"/>
+                    <button class="bg-violet-500 rounded-md p-2 text-white">
+                        {"Save"}
+                    </button>
                     </div>
-                })}
-            </div>
-            { if let Some(winner) = *winner {
-                winner_modal(winner)
-            } else {
-                html! {}
-            }}
+                </form>
+                <div class="post">
+                    <br/>
+                    <h4>{"New Game: "}</h4>
+                    <small>{"Disc Colors: Red (You) vs Yellow (Computer)"}</small>
+                    <br/>
+                </div>
+                <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
+                    { for (0..DEFAULT_C4_ROWS).map(|y| html! {
+                        <div class="flex justify-center items-center gap-4 my-4">
+                            { for (0..DEFAULT_C4_COLS).map(|x| html! {
+                                <div onclick={handle_click.reform(move |_| x)}
+                                    class={
+                                        let base_class = "w-12 h-12 rounded-full flex items-center justify-center";
+                                        match board[y][x] {
+                                            1 => format!("{} {}", base_class, "bg-chipPrimaryBg"),
+                                            2 => format!("{} {}", base_class, "bg-chipSecondaryBg"),
+                                            _ => format!("{} {}", base_class, "bg-white"),
+                                        }
+                                    }>
+                                </div>
+                            })}
+                        </div>
+                    })}
+                </div>
+                { if let Some(winner) = *winner {
+                    winner_modal(winner)
+                } else {
+                    html! {}
+                }}
             </div>
         </>
     }
@@ -130,6 +142,131 @@ fn check_winner(board: &Vec<Vec<usize>>) -> Option<usize> {
         }
     }
     None
+}
+
+fn get_valid_locations(board: &Vec<Vec<usize>>) -> Vec<usize> {
+    (0..DEFAULT_C4_COLS).filter(|&col| board[0][col] == 0).collect()
+}
+
+fn get_next_open_row(board: &Vec<Vec<usize>>, col: usize) -> Option<usize> {
+    (0..DEFAULT_C4_ROWS).rev().find(|&row| board[row][col] == 0)
+}
+
+fn drop_piece(board: &mut Vec<Vec<usize>>, row: usize, col: usize, piece: usize) {
+    if row < DEFAULT_C4_ROWS {
+        board[row][col] = piece;
+    }
+}
+
+fn is_terminal_node(board: &Vec<Vec<usize>>) -> bool {
+    check_winner(board).is_some() || get_valid_locations(board).is_empty()
+}
+
+fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
+    let mut score = 0;
+    let center_col = DEFAULT_C4_COLS / 2;
+    let center_count = board.iter().map(|row| row[center_col] == piece).count() as isize;
+    score += center_count * 100;
+
+    for row in board {
+        for col in 0..DEFAULT_C4_COLS - 3 {
+            let window = &row[col..col + 4];
+            score += evaluate_window(window, piece);
+        }
+    }
+
+    for col in 0..DEFAULT_C4_COLS {
+        for row in 0..DEFAULT_C4_ROWS - 3 {
+            let window = (0..4).map(|i| board[row + i][col]).collect::<Vec<_>>();
+            score += evaluate_window(&window, piece);
+        }
+    }
+
+    for row in 0..DEFAULT_C4_ROWS - 3 {
+        for col in 0..DEFAULT_C4_COLS - 3 {
+            let window = (0..4).map(|i| board[row + i][col + i]).collect::<Vec<_>>();
+            score += evaluate_window(&window, piece);
+        }
+    }
+
+    for row in 3..DEFAULT_C4_ROWS {
+        for col in 0..DEFAULT_C4_COLS - 3 {
+            let window = (0..4).map(|i| board[row - i][col + i]).collect::<Vec<_>>();
+            score += evaluate_window(&window, piece);
+        }
+    }
+
+    score
+}
+
+fn minimax(board: &Vec<Vec<usize>>, depth: usize, mut alpha: isize, mut beta: isize, maximizing_player: bool) -> (usize, isize) {
+    if depth == 0 || is_terminal_node(board) {
+        return (0, score_position(board, if maximizing_player { 2 } else { 1 }));
+    }
+
+    if maximizing_player {
+        let mut value = isize::MIN;
+        let mut best_column = 0;
+        for col in get_valid_locations(board) {
+            if let Some(row) = get_next_open_row(board, col) {
+                let mut new_board = board.clone();
+                drop_piece(&mut new_board, row, col, 2);
+                let (_, score) = minimax(&new_board, depth - 1, alpha, beta, false);
+                if score > value {
+                    value = score;
+                    best_column = col;
+                }
+                alpha = max(alpha, value);
+                if alpha >= beta {
+                    break;
+                }
+            }
+        }
+        return (best_column, value);
+    } else {
+        let mut value = isize::MAX;
+        let mut best_column = 0;
+        for col in get_valid_locations(board) {
+            if let Some(row) = get_next_open_row(board, col) {
+                let mut new_board = board.clone();
+                drop_piece(&mut new_board, row, col, 1);
+                let (_, score) = minimax(&new_board, depth - 1, alpha, beta, true);
+                if score < value {
+                    value = score;
+                    best_column = col;
+                }
+                beta = min(beta, value);
+                if alpha >= beta {
+                    break;
+                }
+            }
+        }
+        return (best_column, value);
+    }
+}
+
+fn evaluate_window(window: &[usize], piece: usize) -> isize {
+    let mut score = 0;
+    let opp_piece = if piece == USER { COMPUTER } else { USER };
+    let count_piece = window.iter().filter(|&&p| p == piece).count();
+    let count_empty = window.iter().filter(|&&p| p == 0).count();
+
+    match (count_piece, count_empty) {
+        (4, _) => score += 10000,
+        (3, 1) => score += 100,
+        (2, 2) => score += 10,
+        _ => (),
+    }
+
+    if window.iter().filter(|&&p| p == opp_piece).count() == 3 && count_empty == 1 {
+        score -= 100;
+    }
+
+    if window.iter().filter(|&&p| p == opp_piece).count() == 4 {
+        score -= 1000;
+    }
+
+    score
 }
 
 #[function_component]
