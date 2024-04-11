@@ -132,22 +132,30 @@ fn check_winner(board: &Vec<Vec<(char, usize)>>) -> Option<usize> {
     let toot_sequence = ['T', 'O', 'O', 'T'];
     let otto_sequence = ['O', 'T', 'T', 'O'];
     let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
+    let mut found_toot = false;
+    let mut found_otto = false;
 
     for y in 0..DEFAULT_OT_ROWS {
         for x in 0..DEFAULT_OT_COLS {
             if board[y][x].0 != ' ' {
                 for &(dy, dx) in &directions {
                     if check_sequence(board, x, y, dx, dy, &toot_sequence) {
-                        return Some(1);
+                        found_toot = true;
                     }
                     if check_sequence(board, x, y, dx, dy, &otto_sequence) {
-                        return Some(2);
+                        found_otto = true;
                     }
                 }
             }
         }
     }
-    None
+
+    match (found_toot, found_otto) {
+        (true, false) => Some(1),
+        (false, true) => Some(2),
+        (true, true) => Some(3),
+        _ => None,
+    }
 }
 
 fn check_sequence(
