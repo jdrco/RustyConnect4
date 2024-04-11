@@ -9,3 +9,5 @@ edition = "2021"
 yew = { git = "https://github.com/yewstack/yew/", features = ["csr"] }
 web-sys = "0.3.69"
 yew-router = { git = "https://github.com/yewstack/yew.git" }
+gloo-console = "0.3.0"
+rand = "0.8.5"

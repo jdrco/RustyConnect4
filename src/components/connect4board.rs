@@ -1,21 +1,34 @@
 use crate::constant::{DEFAULT_C4_COLS, DEFAULT_C4_ROWS, HEADER, RED_BAR};
+use gloo_console::log;
+use rand::prelude::*;
 use yew::prelude::*;
-use yew::{function_component, html};
 
 #[function_component]
 pub fn Connect4Board() -> Html {
     let board = use_state(|| vec![vec![0; DEFAULT_C4_COLS]; DEFAULT_C4_ROWS]);
-    let player_turn = use_state(|| true);
+
+    let make_computer_move = |board: &mut Vec<Vec<usize>>| {
+        let available_cols: Vec<usize> = (0..DEFAULT_C4_COLS)
+            .filter(|&col| board[0][col] == 0)
+            .collect();
+
+        if let Some(&col) = available_cols.choose(&mut rand::thread_rng()) {
+            if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&r| board[r][col] == 0) {
+                log!("Computer picked column:", col);
+                board[row][col] = 2;
+            }
+        }
+    };
 
     let handle_click = {
         let board = board.clone();
-        let player_turn = player_turn.clone();
         Callback::from(move |x: usize| {
             let mut new_board = (*board).clone();
             if let Some(y) = (0..DEFAULT_C4_ROWS).rev().find(|&y| new_board[y][x] == 0) {
-                new_board[y][x] = if *player_turn { 1 } else { 2 };
+                log!("User picked column:", x);
+                new_board[y][x] = 1;
+                make_computer_move(&mut new_board);
                 board.set(new_board);
-                player_turn.set(!*player_turn);
             }
         })
     };
@@ -31,7 +44,6 @@ pub fn Connect4Board() -> Html {
                 <button class="bg-violet-500 rounded-md p-2 text-white">
                     {"Save"}
                 </button>
-
                 </div>
             </form>
             <div class="post">
