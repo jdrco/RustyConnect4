@@ -102,7 +102,12 @@ fn check_winner(board: &Vec<Vec<usize>>) -> Option<usize> {
                     let mut count = 1;
                     let mut nx = x as isize + dx;
                     let mut ny = y as isize + dy;
-                    while nx >= 0 && nx < DEFAULT_C4_COLS as isize && ny >= 0 && ny < DEFAULT_C4_ROWS as isize && board[ny as usize][nx as usize] == current {
+                    while nx >= 0
+                        && nx < DEFAULT_C4_COLS as isize
+                        && ny >= 0
+                        && ny < DEFAULT_C4_ROWS as isize
+                        && board[ny as usize][nx as usize] == current
+                    {
                         count += 1;
                         if count == 4 {
                             return Some(current);
@@ -139,7 +144,11 @@ fn get_next_open_row(board: &Vec<Vec<usize>>, col: usize) -> Option<usize> {
 fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
     let mut score = 0;
     let center_col = DEFAULT_C4_COLS / 2;
-    let center_count = board.iter().map(|row| (row[center_col] == piece) as isize).sum::<isize>();
+
+    let center_count = board
+        .iter()
+        .map(|row| (row[center_col] == piece) as isize)
+        .sum::<isize>();
     score += center_count * 10;
 
     // Horizontal windows
@@ -234,20 +243,16 @@ fn evaluate_window(window: &[usize], piece: usize) -> isize {
     let opp_piece = if piece == USER { COMPUTER } else { USER };
     let count_piece = window.iter().filter(|&&p| p == piece).count();
     let count_empty = window.iter().filter(|&&p| p == 0).count();
+    let count_opp_piece = window.iter().filter(|&&p| p == opp_piece).count();
 
-    match (count_piece, count_empty) {
-        (4, _) => score += 100,
-        (3, 1) => score += 10,
-        (2, 2) => score += 2,
+    match (count_piece, count_empty, count_opp_piece) {
+        (4, 0, 0) => score += 10000,
+        (0, 0, 4) => score -= 10000,
+        (3, 1, 0) => score += 500,
+        (0, 1, 3) => score -= 500,
+        (2, 2, 0) => score += 50,
+        (0, 2, 2) => score -= 50,
         _ => (),
-    }
-
-    if window.iter().filter(|&&p| p == opp_piece).count() == 3 && count_empty == 1 {
-        score -= 10;
-    }
-
-    if window.iter().filter(|&&p| p == opp_piece).count() == 4 {
-        score -= 100;
     }
 
     score
