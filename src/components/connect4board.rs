@@ -113,13 +113,14 @@ pub fn Connect4Board() -> Html {
                         onchange={handle_difficulty_change}/>
                     <label for="difficulty_hard">{"Hard mode (Play against minimax AI)"}</label>
                 </div>
-                <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
+                <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg px-6">
                     { for (0..DEFAULT_C4_ROWS).map(|y| html! {
-                        <div class="flex justify-center items-center gap-4 my-4">
+                        <div class="flex justify-center items-center">
                             { for (0..DEFAULT_C4_COLS).map(|x| html! {
-                                <div onclick={handle_user_move.reform(move |_| x)}
-                                    class={
-                                        let base_class = "w-12 h-12 rounded-full flex items-center justify-center";
+                                <div class="relative flex w-full py-2  items-center justify-center" onclick={handle_user_move.reform(move |_| x)}>
+                                    <div class="absolute inset-0 z-[-1]" />
+                                    <div class={
+                                        let base_class = "w-12 h-12 aspect rounded-full flex";
                                         let is_last_move = *last_move == Some((x, y));
                                         let animation_class = if is_last_move { "animate-drop" } else { "" };
                                         match board[y][x] {
@@ -127,7 +128,7 @@ pub fn Connect4Board() -> Html {
                                             2 => format!("{} {} {}", base_class, animation_class, "bg-chipSecondaryBg"),
                                             _ => format!("{} {}", base_class, "bg-white"),
                                         }
-                                    }>
+                                    }></div>
                                 </div>
                             })}
                         </div>
