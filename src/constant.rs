@@ -4,3 +4,6 @@ pub const DEFAULT_C4_ROWS: usize = 6;
 pub const DEFAULT_C4_COLS: usize = 7;
 pub const DEFAULT_OT_ROWS: usize = 4;
 pub const DEFAULT_OT_COLS: usize = 6;
+pub const USER: usize = 1;
+pub const COMPUTER: usize = 2;
+pub const EMPTY: usize = 0;

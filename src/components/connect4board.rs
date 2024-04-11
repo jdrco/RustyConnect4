@@ -1,5 +1,5 @@
 use crate::components::winner_modal::WinnerModal;
-use crate::constant::{DEFAULT_C4_COLS, DEFAULT_C4_ROWS};
+use crate::constant::{DEFAULT_C4_COLS, DEFAULT_C4_ROWS, USER, COMPUTER, EMPTY};
 use gloo_console::log;
 use rand::prelude::*;
 use web_sys::HtmlInputElement;
@@ -8,12 +8,9 @@ use gloo_timers::callback::Timeout;
 
 use std::cmp::{max, min};
 
-const USER: usize = 1;
-const COMPUTER: usize = 2;
-
 #[function_component]
 pub fn Connect4Board() -> Html {
-    let board = use_state(|| vec![vec![0; DEFAULT_C4_COLS]; DEFAULT_C4_ROWS]);
+    let board = use_state(|| vec![vec![EMPTY; DEFAULT_C4_COLS]; DEFAULT_C4_ROWS]);
     let winner = use_state(|| None::<usize>);
     let difficulty = use_state(|| "Easy".to_string());
     let last_move = use_state(|| None::<(usize, usize)>);
@@ -22,13 +19,13 @@ pub fn Connect4Board() -> Html {
     let make_computer_move = |board: &mut Vec<Vec<usize>>, difficulty: &String| -> Option<(usize, usize)>{
         if *difficulty == "Easy" {
             let available_cols: Vec<usize> = (0..DEFAULT_C4_COLS)
-                .filter(|&col| board[0][col] == 0)
+                .filter(|&col| board[0][col] == EMPTY)
                 .collect();
-            if let Some(&col) = available_cols.choose(&mut rand::thread_rng()) {
-                if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&r| board[r][col] == 0) {
-                    log!("Computer picked column:", col);
-                    board[row][col] = COMPUTER;
-                    return Some((col, row));
+            if let Some(&rand_col) = available_cols.choose(&mut rand::thread_rng()) {
+                if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&r| board[r][rand_col] == EMPTY) {
+                    log!("Computer picked column:", rand_col);
+                    board[row][rand_col] = COMPUTER;
+                    return Some((rand_col, row));
                 }
             }
         } else {
@@ -54,7 +51,7 @@ pub fn Connect4Board() -> Html {
                 return;
             }
             let mut new_board = (*board).clone();
-            if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&row| new_board[row][col] == 0) {
+            if let Some(row) = (0..DEFAULT_C4_ROWS).rev().find(|&row| new_board[row][col] == EMPTY) {
                 log!("User picked column:", col);
 
                 new_board[row][col] = USER;
@@ -78,6 +75,8 @@ pub fn Connect4Board() -> Html {
                         }
                         if let Some(winner_player) = check_winner(&new_board) {
                             winner.set(Some(winner_player));
+                        }  else if check_draw(&new_board) {
+                            winner.set(Some(EMPTY));
                         }
                         board.set(new_board);
                         is_user_turn.set(true);
@@ -144,6 +143,10 @@ pub fn Connect4Board() -> Html {
     }
 }
 
+fn check_draw(board: &Vec<Vec<usize>>) -> bool {
+    board[0].iter().all(|&cell| cell != EMPTY)
+}
+
 fn check_winner(board: &Vec<Vec<usize>>) -> Option<usize> {
     let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
     for y in 0..DEFAULT_C4_ROWS {
@@ -175,7 +178,7 @@ fn check_winner(board: &Vec<Vec<usize>>) -> Option<usize> {
 }
 
 fn get_next_open_row(board: &Vec<Vec<usize>>, col: usize) -> Option<usize> {
-    (0..DEFAULT_C4_ROWS).rev().find(|&row| board[row][col] == 0)
+    (0..DEFAULT_C4_ROWS).rev().find(|&row| board[row][col] == EMPTY)
 }
 
 fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
@@ -279,7 +282,7 @@ fn evaluate_window(window: &[usize], piece: usize) -> isize {
     let mut score = 0;
     let opp_piece = if piece == USER { COMPUTER } else { USER };
     let count_piece = window.iter().filter(|&&p| p == piece).count();
-    let count_empty = window.iter().filter(|&&p| p == 0).count();
+    let count_empty = window.iter().filter(|&&p| p == EMPTY).count();
     let count_opp_piece = window.iter().filter(|&&p| p == opp_piece).count();
 
     match (count_piece, count_empty, count_opp_piece) {
