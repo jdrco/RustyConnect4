@@ -1,6 +1,5 @@
 use crate::constant::{DEFAULT_C4_COLS, DEFAULT_C4_ROWS, HEADER, RED_BAR};
 use gloo_console::log;
-use rand::prelude::*;
 use yew::prelude::*;
 
 use std::cmp::{max, min};
@@ -14,7 +13,7 @@ pub fn Connect4Board() -> Html {
     let winner = use_state(|| None::<usize>);
 
     let make_computer_move = |board: &mut Vec<Vec<usize>>| {
-        let (best_col, _) = minimax(board, 4, isize::MIN, isize::MAX, true);
+        let (best_col, _) = minimax(board, 5, isize::MIN, isize::MAX, true);
         if let Some(row) = get_next_open_row(board, best_col) {
             log!("Computer picked column:", best_col);
             board[row][best_col] = COMPUTER;
