@@ -1,5 +1,5 @@
 use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
-use rand::{prelude::*, rngs};
+use rand::prelude::*;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
@@ -9,47 +9,37 @@ pub fn TootAndOttoBoard() -> Html {
     let board = use_state(|| vec![vec![(' ', 0); DEFAULT_OT_COLS]; DEFAULT_OT_ROWS]);
     let player_turn = use_state(|| 1);
     let player_choice = use_state(|| 'T');
+    let winner = use_state(|| None::<usize>);
 
     let handle_click = {
         let board = board.clone();
         let player_turn = player_turn.clone();
         let player_choice = player_choice.clone();
+        let winner = winner.clone();
         Callback::from(move |x: usize| {
-            let mut new_board = (*board).clone();
-            if let Some(y) = (0..DEFAULT_OT_ROWS)
-                .rev()
-                .find(|&y| new_board[y][x].0 == ' ')
-            {
-                new_board[y][x] = (*player_choice, *player_turn);
-                player_turn.set(2);
-
-                let mut rng = rand::thread_rng();
-                let mut col = rng.gen_range(0..DEFAULT_OT_COLS);
-                let mut row: Option<usize> = None;
-
-                for r in (0..DEFAULT_OT_ROWS).rev() {
-                    if new_board[r][col].0 == ' ' {
-                        row = Some(r);
-                        break;
-                    }
-                }
-
-                while row.is_none() {
-                    col = rng.gen_range(0..DEFAULT_OT_COLS);
-                    for r in (0..DEFAULT_OT_ROWS).rev() {
-                        if new_board[r][col].0 == ' ' {
-                            row = Some(r);
-                            break;
+            if winner.is_none() {
+                let mut new_board = (*board).clone();
+                if let Some(y) = (0..DEFAULT_OT_ROWS)
+                    .rev()
+                    .find(|&y| new_board[y][x].0 == ' ')
+                {
+                    new_board[y][x] = (*player_choice, *player_turn);
+                    if let Some(win_player) = check_winner(&new_board) {
+                        winner.set(Some(win_player));
+                    } else if is_full_board(&new_board) {
+                        winner.set(Some(3));
+                    } else {
+                        player_turn.set(2);
+                        make_computer_move(&mut new_board);
+                        if let Some(win_player) = check_winner(&new_board) {
+                            winner.set(Some(win_player));
+                        } else if is_full_board(&new_board) {
+                            winner.set(Some(3));
+                        } else {
+                            player_turn.set(1);
                         }
                     }
-                }
-
-                if let Some(r) = row {
-                    let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
-                    new_board[r][col] = (computer_choice, 2);
-                    player_turn.set(1);
                     board.set(new_board);
-                } else {
                 }
             }
         })
@@ -113,6 +103,99 @@ pub fn TootAndOttoBoard() -> Html {
                         })}
                     </div>
                 })}
+            </div>
+            { if let Some(winner_player) = *winner {
+                popup_modal(winner_player)
+            } else {
+                html! {}
+            }}
+        </div>
+
+    }
+}
+
+fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
+    let mut rng = rand::thread_rng();
+    let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
+        .filter(|&col| board[0][col].0 == ' ')
+        .collect();
+
+    if let Some(&col) = available_cols.choose(&mut rng) {
+        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+            let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
+            board[row][col] = (computer_choice, 2);
+        }
+    }
+}
+
+fn check_winner(board: &Vec<Vec<(char, usize)>>) -> Option<usize> {
+    let toot_sequence = ['T', 'O', 'O', 'T'];
+    let otto_sequence = ['O', 'T', 'T', 'O'];
+    let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
+
+    for y in 0..DEFAULT_OT_ROWS {
+        for x in 0..DEFAULT_OT_COLS {
+            if board[y][x].0 != ' ' {
+                for &(dy, dx) in &directions {
+                    if check_sequence(board, x, y, dx, dy, &toot_sequence) {
+                        return Some(1);
+                    }
+                    if check_sequence(board, x, y, dx, dy, &otto_sequence) {
+                        return Some(2);
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+fn check_sequence(
+    board: &Vec<Vec<(char, usize)>>,
+    x: usize,
+    y: usize,
+    dx: isize,
+    dy: isize,
+    sequence: &[char],
+) -> bool {
+    for (index, &char) in sequence.iter().enumerate() {
+        let nx = x as isize + index as isize * dx;
+        let ny = y as isize + index as isize * dy;
+
+        if nx < 0
+            || nx >= DEFAULT_OT_COLS as isize
+            || ny < 0
+            || ny >= DEFAULT_OT_ROWS as isize
+            || board[ny as usize][nx as usize].0 != char
+        {
+            return false;
+        }
+    }
+    true
+}
+
+fn is_full_board(board: &Vec<Vec<(char, usize)>>) -> bool {
+    board.iter().all(|row| row.iter().all(|(c, _)| *c != ' '))
+}
+
+fn popup_modal(winner: usize) -> Html {
+    html! {
+        <div class={"modal fixed z-1 left-0 top-0 w-full h-full overflow-auto bg-black bg-opacity-40"}>
+            <div class={"modal-content bg-gray-100 mx-auto my-15 p-5 border border-gray-400 w-4/5"}>
+               {
+                if winner == 1 {
+                    html! {<h3>{"Player 1 Wins!"}</h3>}
+                } else if winner == 2 {
+                    html! {<h3>{"Player 2 Wins!"}</h3>}
+                } else {
+                    html! {<h3>{"It's a Draw!"}</h3>}
+               }
+            }
+                <form>
+                    <button class="bg-violet-500 rounded-md p-2 text-white">
+                        {"Play Again"}
+                    </button>
+                </form>
             </div>
         </div>
     }
