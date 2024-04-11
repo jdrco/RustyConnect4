@@ -1,4 +1,5 @@
 use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
+use rand::{prelude::*, rngs};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
@@ -20,8 +21,36 @@ pub fn TootAndOttoBoard() -> Html {
                 .find(|&y| new_board[y][x].0 == ' ')
             {
                 new_board[y][x] = (*player_choice, *player_turn);
-                board.set(new_board);
-                player_turn.set(if *player_turn == 1 { 2 } else { 1 });
+                player_turn.set(2);
+
+                let mut rng = rand::thread_rng();
+                let mut col = rng.gen_range(0..DEFAULT_OT_COLS);
+                let mut row: Option<usize> = None;
+
+                for r in (0..DEFAULT_OT_ROWS).rev() {
+                    if new_board[r][col].0 == ' ' {
+                        row = Some(r);
+                        break;
+                    }
+                }
+
+                while row.is_none() {
+                    col = rng.gen_range(0..DEFAULT_OT_COLS);
+                    for r in (0..DEFAULT_OT_ROWS).rev() {
+                        if new_board[r][col].0 == ' ' {
+                            row = Some(r);
+                            break;
+                        }
+                    }
+                }
+
+                if let Some(r) = row {
+                    let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
+                    new_board[r][col] = (computer_choice, 2);
+                    player_turn.set(1);
+                    board.set(new_board);
+                } else {
+                }
             }
         })
     };
