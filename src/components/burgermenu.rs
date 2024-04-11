@@ -1,4 +1,5 @@
-use crate::components::connect4board::{Connect4Board, Connect4Rules};
+use crate::components::connect4board::Connect4Board;
+use crate::components::connect4rules::Connect4Rules;
 use crate::components::tootandottoboard::{TootAndOttoBoard, TootAndOttoRules};
 use yew::prelude::*;
 use yew::{function_component, html, Callback};
