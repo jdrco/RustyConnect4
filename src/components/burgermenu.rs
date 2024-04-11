@@ -28,16 +28,26 @@ enum Route {
 
 #[function_component(BurgerMenu)]
 pub fn burger_menu(props: &Props) -> Html {
-    let theme = use_state(|| false);
+    let theme = use_state(|| Theme::Regular);
     let toggle_theme = {
         let theme = theme.clone();
-        Callback::from(move |_| theme.set(!*theme))
+        Callback::from(move |_| {
+            theme.set(match *theme {
+                Theme::Regular => Theme::Colorblind,
+                Theme::Colorblind => Theme::Protanopia,
+                Theme::Protanopia => Theme::Deuteranopia,
+                Theme::Deuteranopia => Theme::Tritanopia,
+                Theme::Tritanopia => Theme::Regular,
+            })
+        })
     };
 
-    let theme_class = if *theme {
-        "theme-colorblind"
-    } else {
-        "theme-regular"
+    let theme_class = match *theme {
+        Theme::Regular => "theme-regular",
+        Theme::Colorblind => "theme-colorblind",
+        Theme::Protanopia => "theme-protanopia",
+        Theme::Deuteranopia => "theme-deuteranopia",
+        Theme::Tritanopia => "theme-tritanopia",        
     };
 
     let is_hidden = use_state(|| props.is_hidden);
@@ -110,4 +120,12 @@ fn switch(routes: Route) -> Html {
             html! {}
         }
     }
+}
+
+enum Theme {
+    Regular,
+    Colorblind,
+    Protanopia,
+    Deuteranopia,
+    Tritanopia,
 }
