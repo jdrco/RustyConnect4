@@ -1,5 +1,6 @@
 use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
 use rand::prelude::*;
+use std::cmp::{max, min};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
@@ -114,19 +115,19 @@ pub fn TootAndOttoBoard() -> Html {
     }
 }
 
-fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
-    let mut rng = rand::thread_rng();
-    let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
-        .filter(|&col| board[0][col].0 == ' ')
-        .collect();
+// fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
+//     let mut rng = rand::thread_rng();
+//     let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
+//         .filter(|&col| board[0][col].0 == ' ')
+//         .collect();
 
-    if let Some(&col) = available_cols.choose(&mut rng) {
-        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
-            let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
-            board[row][col] = (computer_choice, 2);
-        }
-    }
-}
+//     if let Some(&col) = available_cols.choose(&mut rng) {
+//         if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+//             let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
+//             board[row][col] = (computer_choice, 2);
+//         }
+//     }
+// }
 
 fn check_winner(board: &Vec<Vec<(char, usize)>>) -> Option<usize> {
     let toot_sequence = ['T', 'O', 'O', 'T'];
@@ -184,6 +185,172 @@ fn check_sequence(
 
 fn is_full_board(board: &Vec<Vec<(char, usize)>>) -> bool {
     board.iter().all(|row| row.iter().all(|(c, _)| *c != ' '))
+}
+
+fn evaluate_board(board: &Vec<Vec<(char, usize)>>, piece: char) -> isize {
+    let mut score = 0;
+
+    // Scoring constants for different situations
+    const WIN_SCORE: isize = 10000;
+    const BLOCK_WIN_SCORE: isize = 5000;
+    const ADVANCE_SCORE: isize = 100;
+    const BLOCK_SCORE: isize = 50;
+
+    let toot = ['T', 'O', 'O', 'T'];
+    let otto = ['O', 'T', 'T', 'O'];
+    let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
+
+    for y in 0..DEFAULT_OT_ROWS {
+        for x in 0..DEFAULT_OT_COLS {
+            for &(dy, dx) in &directions {
+                let toot_score = check_sequence_score(
+                    board,
+                    x,
+                    y,
+                    dx,
+                    dy,
+                    &toot,
+                    piece,
+                    BLOCK_WIN_SCORE,
+                    BLOCK_SCORE,
+                );
+                let otto_score = check_sequence_score(
+                    board,
+                    x,
+                    y,
+                    dx,
+                    dy,
+                    &otto,
+                    piece,
+                    WIN_SCORE,
+                    ADVANCE_SCORE,
+                );
+                score += toot_score + otto_score;
+            }
+        }
+    }
+
+    score
+}
+
+fn check_sequence_score(
+    board: &Vec<Vec<(char, usize)>>,
+    x: usize,
+    y: usize,
+    dx: isize,
+    dy: isize,
+    sequence: &[char],
+    piece: char,
+    win_score: isize,
+    advance_score: isize,
+) -> isize {
+    let mut score = 0;
+    let mut match_count = 0;
+    let mut empty_count = 0;
+
+    for (index, &char) in sequence.iter().enumerate() {
+        let nx = x as isize + index as isize * dx;
+        let ny = y as isize + index as isize * dy;
+
+        if nx >= 0 && nx < DEFAULT_OT_COLS as isize && ny >= 0 && ny < DEFAULT_OT_ROWS as isize {
+            if board[ny as usize][nx as usize].0 == char {
+                match_count += 1;
+            } else if board[ny as usize][nx as usize].0 == ' ' {
+                empty_count += 1;
+            } else {
+                return 0; // This space is blocked by the other character.
+            }
+        }
+    }
+
+    // Adjust score calculation based on the character and sequence.
+    if piece == sequence[0] {
+        // If checking for AI's own winning sequence
+        if match_count == 3 && empty_count == 1 {
+            score += win_score; // Prioritize winning
+        } else if match_count > 0 {
+            score += advance_score * match_count as isize; // Advance towards win
+        }
+    } else {
+        // If checking for opponent's winning sequence
+        if match_count == 3 && empty_count == 1 {
+            score -= win_score * 10; // Significantly block opponent's win
+        } else if match_count > 0 {
+            score -= advance_score * match_count as isize * 5; // Block opponent's advance
+        }
+    }
+
+    score
+}
+
+fn minimax(
+    board: &Vec<Vec<(char, usize)>>,
+    depth: usize,
+    alpha: isize,
+    beta: isize,
+    is_maximizing: bool,
+) -> (usize, isize) {
+    if depth == 0 || check_winner(board).is_some() {
+        let eval_piece = if is_maximizing { 'O' } else { 'T' };
+        return (0, evaluate_board(board, eval_piece));
+    }
+
+    let mut alpha = alpha;
+    let mut beta = beta;
+    let mut best_col = usize::MAX;
+    let mut value = if is_maximizing {
+        isize::MIN
+    } else {
+        isize::MAX
+    };
+    let current_piece = if is_maximizing { 'O' } else { 'T' }; // Always use 'O' for maximizing and 'T' for minimizing
+
+    for col in 0..DEFAULT_OT_COLS {
+        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+            let mut temp_board = board.clone();
+            temp_board[row][col] = (current_piece, if is_maximizing { 2 } else { 1 });
+
+            let (_, new_score) = minimax(&temp_board, depth - 1, alpha, beta, !is_maximizing);
+            if is_maximizing {
+                if new_score > value {
+                    value = new_score;
+                    best_col = col;
+                }
+                alpha = max(alpha, value);
+            } else {
+                if new_score < value {
+                    value = new_score;
+                    best_col = col;
+                }
+                beta = min(beta, value);
+            }
+
+            if alpha >= beta {
+                break;
+            }
+        }
+    }
+    (best_col, value)
+}
+
+fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
+    // If there's no immediate win or loss, use minimax to determine the best move
+    let (col_o, score_o) = minimax(board, 4, isize::MIN, isize::MAX, true);
+    let (col_t, score_t) = minimax(board, 4, isize::MIN, isize::MAX, false);
+
+    let (best_piece, best_col) = if score_o >= score_t {
+        ('O', col_o)
+    } else {
+        ('T', col_t)
+    };
+
+    // Apply the best move determined by minimax
+    if let Some(row) = (0..DEFAULT_OT_ROWS)
+        .rev()
+        .find(|&r| board[r][best_col].0 == ' ')
+    {
+        board[row][best_col] = (best_piece, 2);
+    }
 }
 
 fn popup_modal(winner: usize) -> Html {
