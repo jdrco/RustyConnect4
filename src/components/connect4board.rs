@@ -6,6 +6,7 @@ use yew::prelude::*;
 #[function_component]
 pub fn Connect4Board() -> Html {
     let board = use_state(|| vec![vec![0; DEFAULT_C4_COLS]; DEFAULT_C4_ROWS]);
+    let winner = use_state(|| None::<usize>);
 
     let make_computer_move = |board: &mut Vec<Vec<usize>>| {
         let available_cols: Vec<usize> = (0..DEFAULT_C4_COLS)
@@ -22,12 +23,23 @@ pub fn Connect4Board() -> Html {
 
     let handle_click = {
         let board = board.clone();
+        let winner = winner.clone();
         Callback::from(move |x: usize| {
             let mut new_board = (*board).clone();
             if let Some(y) = (0..DEFAULT_C4_ROWS).rev().find(|&y| new_board[y][x] == 0) {
                 log!("User picked column:", x);
                 new_board[y][x] = 1;
-                make_computer_move(&mut new_board);
+
+                // Check if user wins after their move
+                if let Some(winner_player) = check_winner(&new_board) {
+                    winner.set(Some(winner_player));
+                } else {
+                    // Make computer move only if there is no winner yet
+                    make_computer_move(&mut new_board);
+                    if let Some(winner_player) = check_winner(&new_board) {
+                        winner.set(Some(winner_player));
+                    }
+                }
                 board.set(new_board);
             }
         })
@@ -70,9 +82,54 @@ pub fn Connect4Board() -> Html {
                     </div>
                 })}
             </div>
+            { if let Some(winner) = *winner {
+                winner_modal(winner)
+            } else {
+                html! {}
+            }}
             </div>
         </>
     }
+}
+
+fn winner_modal(winner: usize) -> Html {
+    html! {
+        <div class={"modal fixed z-1 left-0 top-0 w-full h-full overflow-auto bg-black bg-opacity-40"}>
+            <div class={"modal-content bg-gray-100 mx-auto my-15 p-5 border border-gray-400 w-4/5"}>
+                <h3>{ format!("Player {} Wins!", if winner == 1 { "Red" } else { "Yellow" }) }</h3>
+                <form>
+                    <button class="bg-violet-500 rounded-md p-2 text-white">
+                        {"Play Again"}
+                    </button>
+                </form>
+            </div>
+        </div>
+    }
+}
+
+fn check_winner(board: &Vec<Vec<usize>>) -> Option<usize> {
+    let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
+    for y in 0..DEFAULT_C4_ROWS {
+        for x in 0..DEFAULT_C4_COLS {
+            if board[y][x] != 0 {
+                let current = board[y][x];
+                for (dy, dx) in directions.iter() {
+                    let mut count = 1;
+                    let mut nx = x as isize + dx;
+                    let mut ny = y as isize + dy;
+                    while nx >= 0 && nx < DEFAULT_C4_COLS as isize && ny >= 0 && ny < DEFAULT_C4_ROWS as isize && board[ny as usize][nx as usize] == current {
+                        count += 1;
+                        if count == 4 {
+                            return Some(current);
+                        }
+                        nx += dx;
+                        ny += dy;
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 #[function_component]
