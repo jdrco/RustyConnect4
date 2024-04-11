@@ -1,6 +1,6 @@
+use crate::constant::EMPTY;
 use yew::prelude::*;
 use yew::{function_component, html};
-use crate::constant::EMPTY;
 
 #[derive(Properties, PartialEq)]
 pub struct WinnerModalProps {

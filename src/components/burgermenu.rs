@@ -48,7 +48,7 @@ pub fn burger_menu(props: &Props) -> Html {
         Theme::Colorblind => "theme-colorblind",
         Theme::Protanopia => "theme-protanopia",
         Theme::Deuteranopia => "theme-deuteranopia",
-        Theme::Tritanopia => "theme-tritanopia",        
+        Theme::Tritanopia => "theme-tritanopia",
     };
 
     let is_hidden = use_state(|| props.is_hidden);
