@@ -13,3 +13,23 @@
   --chipPrimaryBg: theme('colors.orange.600'); /* Orange replaces red to avoid confusion with green */
   --chipSecondaryBg: theme('colors.lime.500'); /* Lime green replaces yellow for clearer visibility */
 }
+
+.navbar-item {
+  background-color: red;
+  /* Set background color */
+  padding: 10px 20px;
+  /* Adjust padding to desired size */
+  color: #fff;
+  /* Set text color */
+  text-decoration: none;
+  /* Remove underline from links */
+  display: inline-block;
+  /* Ensure elements are displayed inline */
+  margin-right: 10px;
+  /* Adjust margin between navbar items */
+}
+
+.navbar-item:hover {
+  background-color: rebeccapurple;
+  /* Change background color on hover */
+}
