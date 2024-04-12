@@ -1,6 +1,7 @@
 use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
 use rand::prelude::*;
 use std::cmp::{max, min};
+use web_sys::console;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
@@ -20,35 +21,56 @@ pub fn TootAndOttoBoard() -> Html {
         let player_choice = player_choice.clone();
         let winner = winner.clone();
         let difficulty = difficulty.clone();
+        let last_move = last_move.clone();
         Callback::from(move |x: usize| {
-            if winner.is_none() {
+            if winner.is_none() && !is_full_board(&(*board)) {
                 let mut new_board = (*board).clone();
                 if let Some(y) = (0..DEFAULT_OT_ROWS)
                     .rev()
                     .find(|&y| new_board[y][x].0 == ' ')
                 {
-                    new_board[y][x] = (*player_choice, *player_turn);
-                    if let Some(win_player) = check_winner(&new_board) {
-                        winner.set(Some(win_player));
-                    } else if is_full_board(&new_board) {
-                        winner.set(Some(3));
-                    } else {
-                        player_turn.set(2);
-
-                        if *difficulty == "Hard" {
-                            make_computer_move(&mut new_board);
-                        } else {
-                            make_random_computer_move(&mut new_board);
-                        }
+                    let current_player = *player_turn;
+                    let current_choice = *player_choice;
+                    let player_piece_count = new_board
+                        .iter()
+                        .flatten()
+                        .filter(|&&(c, p)| c == current_choice && p == current_player)
+                        .count();
+                    let computer_piece_count = new_board
+                        .iter()
+                        .flatten()
+                        .filter(|&&(c, p)| c == current_choice && p != current_player)
+                        .count();
+                    if (current_choice == 'T' && player_piece_count < 6 && computer_piece_count < 6)
+                        || (current_choice == 'O'
+                            && player_piece_count < 6
+                            && computer_piece_count < 6)
+                    {
+                        new_board[y][x] = (current_choice, current_player);
                         if let Some(win_player) = check_winner(&new_board) {
                             winner.set(Some(win_player));
                         } else if is_full_board(&new_board) {
                             winner.set(Some(3));
                         } else {
-                            player_turn.set(1);
+                            player_turn.set(3 - current_player);
+                            board.set(new_board.clone());
+                            last_move.set(Some((x, y)));
+
+                            if *difficulty == "Hard" {
+                                make_computer_move(&mut new_board, 2);
+                            } else {
+                                make_random_computer_move(&mut new_board);
+                            }
+                            if let Some(win_player) = check_winner(&new_board) {
+                                winner.set(Some(win_player));
+                            } else if is_full_board(&new_board) {
+                                winner.set(Some(3));
+                            } else {
+                                player_turn.set(current_player);
+                            }
+                            board.set(new_board);
                         }
                     }
-                    board.set(new_board);
                 }
             }
         })
@@ -246,10 +268,16 @@ fn check_sequence_score(
     score
 }
 
-fn evaluate_board(board: &Vec<Vec<(char, usize)>>, piece: char) -> isize {
+fn evaluate_board(
+    board: &Vec<Vec<(char, usize)>>,
+    piece: char,
+    num_t: usize,
+    num_o: usize,
+) -> isize {
     let mut score = 0;
 
     const WIN_SCORE: isize = 10000;
+    const TIE_SCORE: isize = 1000; // Assign a score for a tie
     const BLOCK_SCORE: isize = 15000; // Increased block score
     const ADVANCE_SCORE: isize = 100;
     const BLOCK_ADVANCE_SCORE: isize = 200; // Increased block advance score
@@ -289,136 +317,114 @@ fn evaluate_board(board: &Vec<Vec<(char, usize)>>, piece: char) -> isize {
                 // );
                 // score += otto_score + toot_score;
                 score += otto_score;
+
+                // Penalize placing 'T' beside 'OO' or 'O' beside 'O'
+                if board[y][x].0 == 'T' {
+                    if x > 0 && x < DEFAULT_OT_COLS - 1 {
+                        if board[y][x - 1].0 == 'O' && board[y][x + 1].0 == 'O' {
+                            score -= BLOCK_SCORE;
+                        }
+                    }
+                } else if board[y][x].0 == 'O' {
+                    if x > 0 && x < DEFAULT_OT_COLS - 1 {
+                        if board[y][x - 1].0 == 'O' || board[y][x + 1].0 == 'O' {
+                            score -= BLOCK_SCORE;
+                        }
+                    }
+                }
             }
         }
     }
+
+    // Adjust scores based on the number of pieces remaining
+    let total_pieces = num_t + num_o;
+    let remaining_t_ratio = num_t as f64 / total_pieces as f64;
+    let remaining_o_ratio = num_o as f64 / total_pieces as f64;
+
+    score += (WIN_SCORE as f64 * remaining_t_ratio) as isize;
+    score += (WIN_SCORE as f64 * remaining_o_ratio) as isize;
 
     score
 }
 
-fn minimax(
+fn negamax(
     board: &Vec<Vec<(char, usize)>>,
     depth: usize,
     alpha: isize,
     beta: isize,
-    is_maximizing: bool,
+    current_player: usize,
+    player_turn: usize,
 ) -> (usize, isize) {
     if depth == 0 || check_winner(board).is_some() {
-        let eval_piece = if is_maximizing { 'O' } else { 'T' };
-        let score = evaluate_board(board, eval_piece);
-        println!("Leaf node score: {}, depth: {}", score, depth);
-        return (0, score);
+        let score_t = evaluate_board(board, 'T', 0, 0);
+        let score_o = evaluate_board(board, 'O', 0, 0);
+        return (
+            0,
+            if player_turn == current_player {
+                score_t
+            } else {
+                -score_o
+            },
+        );
     }
 
     let mut alpha = alpha;
-    let mut beta = beta;
+    let mut best_value = isize::MIN;
     let mut best_col = usize::MAX;
-    let mut value = if is_maximizing {
-        isize::MIN
-    } else {
-        isize::MAX
-    };
 
-    let current_piece = if is_maximizing { 'O' } else { 'T' };
-
-    for col in 0..DEFAULT_OT_COLS {
-        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
-            let mut temp_board = board.clone();
-            temp_board[row][col] = (current_piece, if is_maximizing { 2 } else { 1 });
-
-            let (_, new_score) = minimax(&temp_board, depth - 1, alpha, beta, !is_maximizing);
-
-            if is_maximizing {
-                if new_score > value {
-                    value = new_score;
-                    best_col = col;
-                }
-                alpha = max(alpha, value);
+    for x in 0..DEFAULT_OT_COLS {
+        if let Some(y) = (0..DEFAULT_OT_ROWS).rev().find(|&y| board[y][x].0 == ' ') {
+            let mut new_board = board.clone();
+            new_board[y][x] = if current_player == 1 {
+                ('T', player_turn)
             } else {
-                if new_score < value {
-                    value = new_score;
-                    best_col = col;
-                }
-                beta = min(beta, value);
-            }
+                ('O', player_turn)
+            };
 
+            let (_, value) = negamax(
+                &new_board,
+                depth - 1,
+                beta.wrapping_neg(),
+                alpha.wrapping_neg(),
+                3 - current_player,
+                player_turn,
+            );
+
+            let value = -value;
+            if value > best_value {
+                best_value = value;
+                best_col = x;
+            }
+            alpha = max(alpha, value);
             if alpha >= beta {
-                break;
+                break; // Beta cut-off
             }
         }
     }
-    (best_col, value)
+
+    (best_col, best_value)
 }
 
-fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
-    // Iterate through the board to find locations where two 'T's are adjacent
-    for y in 0..DEFAULT_OT_ROWS {
-        for x in 0..DEFAULT_OT_COLS - 1 {
-            if board[y][x].0 == 'T' && board[y][x + 1].0 == 'T' {
-                // Check if there's a valid position to place an 'O' on the left side
-                if x > 0 && board[y][x - 1].0 == ' ' {
-                    board[y][x - 1] = ('O', 2); // Assign player 2 (Yellow)
-                    return; // Computer move made
-                }
-                // Check if there's a valid position to place an 'O' on the right side
-                if x < DEFAULT_OT_COLS - 2 && board[y][x + 2].0 == ' ' {
-                    board[y][x + 2] = ('O', 2); // Assign player 2 (Yellow)
-                    return; // Computer move made
-                }
-            }
+fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
+    let mut best_col = usize::MAX;
+    let mut best_value = isize::MIN;
+    let mut best_piece = 'T';
+
+    for &current_piece in &['T', 'O'] {
+        let (col, value) = negamax(&board, 2, isize::MIN, isize::MAX, player_turn, player_turn);
+        if value > best_value && col < DEFAULT_OT_COLS {
+            best_value = value;
+            best_col = col;
+            best_piece = current_piece.clone();
+            console::log_1(&best_value.into());
         }
     }
 
-    // Iterate through the board to find locations where an 'O' is followed by a 'T'
-    for y in 0..DEFAULT_OT_ROWS {
-        for x in 0..DEFAULT_OT_COLS - 1 {
-            if board[y][x].0 == 'O' && board[y][x + 1].0 == 'T' {
-                // Check if there's a valid position to place a 'T' beside the 'OT'
-                if x > 0 && board[y][x - 1].0 == ' ' {
-                    board[y][x - 1] = ('T', 2); // Assign player 2 (Yellow)
-                    return; // Computer move made
-                }
-                if x < DEFAULT_OT_COLS - 2 && board[y][x + 2].0 == ' ' {
-                    board[y][x + 2] = ('T', 2); // Assign player 2 (Yellow)
-                    return; // Computer move made
-                }
-            }
-        }
-    }
-
-    // Iterate through the board to find locations where a single 'O' is present
-    for y in 0..DEFAULT_OT_ROWS {
-        for x in 0..DEFAULT_OT_COLS - 1 {
-            if board[y][x].0 == 'O' {
-                // Check if there's a valid position to place a 'T' beside the 'O'
-                if x > 0 && board[y][x - 1].0 == ' ' {
-                    // Check if placing 'T' beside 'OO' would occur
-                    if x < DEFAULT_OT_COLS - 2
-                        && board[y][x + 1].0 != 'O'
-                        && board[y][x + 2].0 != 'O'
-                    {
-                        board[y][x - 1] = ('T', 2); // Assign player 2 (Yellow)
-                        return; // Computer move made
-                    }
-                }
-                if x < DEFAULT_OT_COLS - 1 && board[y][x + 1].0 == ' ' {
-                    // Check if placing 'T' beside 'OO' would occur
-                    if x > 0 && board[y][x - 1].0 != 'O' && board[y][x - 1].0 != 'O' {
-                        board[y][x + 1] = ('T', 2); // Assign player 2 (Yellow)
-                        return; // Computer move made
-                    }
-                }
-            }
-        }
-    }
-
-    // If no immediate OT or TO pattern is found, make a standard minimax move
-    let (col_o, _) = minimax(board, 6, isize::MIN, isize::MAX, true);
     if let Some(row) = (0..DEFAULT_OT_ROWS)
         .rev()
-        .find(|&r| board[r][col_o].0 == ' ')
+        .find(|&r| board[r][best_col].0 == ' ')
     {
-        board[row][col_o] = ('O', 2); // Assign player 2 (Yellow)
+        board[row][best_col] = (best_piece, 2);
     }
 }
 
