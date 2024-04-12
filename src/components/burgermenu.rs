@@ -1,4 +1,5 @@
-use crate::components::connect4board::{Connect4Board, Connect4Rules};
+use crate::components::connect4board::Connect4Board;
+use crate::components::connect4rules::Connect4Rules;
 use crate::components::tootandottoboard::{TootAndOttoBoard, TootAndOttoRules};
 use yew::prelude::*;
 use yew::{function_component, html, Callback};
@@ -47,7 +48,7 @@ pub fn burger_menu(props: &Props) -> Html {
         Theme::Colorblind => "theme-colorblind",
         Theme::Protanopia => "theme-protanopia",
         Theme::Deuteranopia => "theme-deuteranopia",
-        Theme::Tritanopia => "theme-tritanopia",        
+        Theme::Tritanopia => "theme-tritanopia",
     };
 
     let is_hidden = use_state(|| props.is_hidden);
