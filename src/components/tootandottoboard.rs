@@ -36,15 +36,13 @@ pub fn TootAndOttoBoard() -> Html {
                         .flatten()
                         .filter(|&&(c, p)| c == current_choice && p == current_player)
                         .count();
-                    let computer_piece_count = new_board
-                        .iter()
-                        .flatten()
-                        .filter(|&&(c, p)| c == current_choice && p != current_player)
-                        .count();
-                    if (current_choice == 'T' && player_piece_count < 6 && computer_piece_count < 6)
-                        || (current_choice == 'O'
-                            && player_piece_count < 6
-                            && computer_piece_count < 6)
+                    // let computer_piece_count = new_board
+                    //     .iter()
+                    //     .flatten()
+                    //     .filter(|&&(c, p)| c == current_choice && p != current_player)
+                    //     .count();
+                    if (current_choice == 'T' && player_piece_count < 6)
+                        || (current_choice == 'O' && player_piece_count < 6)
                     {
                         new_board[y][x] = (current_choice, current_player);
                         if let Some(win_player) = check_winner(&new_board) {
@@ -354,16 +352,16 @@ fn negamax(
     beta: isize,
     current_player: usize,
     player_turn: usize,
+    piece: char,
 ) -> (usize, isize) {
     if depth == 0 || check_winner(board).is_some() {
-        let score_t = evaluate_board(board, 'T', 0, 0);
-        let score_o = evaluate_board(board, 'O', 0, 0);
+        let score = evaluate_board(board, piece, 0, 0);
         return (
-            0,
+            usize::MAX,
             if player_turn == current_player {
-                score_t
+                score
             } else {
-                -score_o
+                -score
             },
         );
     }
@@ -372,16 +370,12 @@ fn negamax(
     let mut best_value = isize::MIN;
     let mut best_col = usize::MAX;
 
-    for piece in &['T', 'O'] {
-        for x in 0..DEFAULT_OT_COLS {
-            if let Some(y) = (0..DEFAULT_OT_ROWS).rev().find(|&y| board[y][x].0 == ' ') {
-                let mut new_board = board.clone();
-                new_board[y][x] = if current_player == 1 {
-                    (*piece, player_turn)
-                } else {
-                    (*piece, player_turn)
-                };
+    for col in 0..DEFAULT_OT_COLS {
+        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+            let mut new_board = board.clone();
+            new_board[row][col] = (piece, player_turn);
 
+            for &next_piece in &['T', 'O'] {
                 let (_, value) = negamax(
                     &new_board,
                     depth - 1,
@@ -389,14 +383,15 @@ fn negamax(
                     alpha.wrapping_neg(),
                     3 - current_player,
                     player_turn,
+                    next_piece,
                 );
 
                 let value = -value;
                 if value > best_value {
                     best_value = value;
-                    best_col = x;
+                    best_col = col; // Update best_col here
                 }
-                alpha = max(alpha, value);
+                alpha = alpha.max(value);
                 if alpha >= beta {
                     break; // Beta cut-off
                 }
@@ -413,20 +408,29 @@ fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
     let mut best_piece = 'T';
 
     for &current_piece in &['T', 'O'] {
-        let (col, value) = negamax(&board, 4, isize::MIN, isize::MAX, player_turn, player_turn);
+        let (col, value) = negamax(
+            board,
+            4,
+            isize::MIN,
+            isize::MAX,
+            player_turn,
+            player_turn,
+            current_piece,
+        );
         if value > best_value && col < DEFAULT_OT_COLS {
             best_value = value;
             best_col = col;
-            best_piece = current_piece.clone();
-            console::log_1(&best_value.into());
+            best_piece = current_piece;
         }
     }
 
-    if let Some(row) = (0..DEFAULT_OT_ROWS)
-        .rev()
-        .find(|&r| board[r][best_col].0 == ' ')
-    {
-        board[row][best_col] = (best_piece, 2);
+    if best_col < DEFAULT_OT_COLS {
+        if let Some(row) = (0..DEFAULT_OT_ROWS)
+            .rev()
+            .find(|&r| board[r][best_col].0 == ' ')
+        {
+            board[row][best_col] = (best_piece, player_turn);
+        }
     }
 }
 
