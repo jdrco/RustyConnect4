@@ -11,12 +11,15 @@ pub fn TootAndOttoBoard() -> Html {
     let player_turn = use_state(|| 1);
     let player_choice = use_state(|| 'T');
     let winner = use_state(|| None::<usize>);
+    let difficulty = use_state(|| "Easy".to_string());
+    let last_move = use_state(|| None::<(usize, usize)>);
 
     let handle_click = {
         let board = board.clone();
         let player_turn = player_turn.clone();
         let player_choice = player_choice.clone();
         let winner = winner.clone();
+        let difficulty = difficulty.clone();
         Callback::from(move |x: usize| {
             if winner.is_none() {
                 let mut new_board = (*board).clone();
@@ -28,14 +31,19 @@ pub fn TootAndOttoBoard() -> Html {
                     if let Some(win_player) = check_winner(&new_board) {
                         winner.set(Some(win_player));
                     } else if is_full_board(&new_board) {
-                        winner.set(Some(3)); // Indicates a draw
+                        winner.set(Some(3));
                     } else {
                         player_turn.set(2);
-                        make_computer_move(&mut new_board);
+
+                        if *difficulty == "Hard" {
+                            make_computer_move(&mut new_board);
+                        } else {
+                            make_random_computer_move(&mut new_board);
+                        }
                         if let Some(win_player) = check_winner(&new_board) {
                             winner.set(Some(win_player));
                         } else if is_full_board(&new_board) {
-                            winner.set(Some(3)); // Indicates a draw
+                            winner.set(Some(3));
                         } else {
                             player_turn.set(1);
                         }
@@ -54,18 +62,27 @@ pub fn TootAndOttoBoard() -> Html {
         })
     };
 
+    let handle_difficulty_change = {
+        let difficulty = difficulty.clone();
+        Callback::from(move |e: Event| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            difficulty.set(input.value());
+        })
+    };
+
     html! {
         <div>
-            <div class={HEADER}><b>{"Enter Your Name"}</b></div>
-            <div class={RED_BAR}></div>
-            <form class="col-md-offset-4 col-md-8">
-                <div class="col-md-offset-3 col-md-8">
-                    <input id="textbox1" type="text" placeholder="Your Name"/>
-                    <button class="bg-violet-500 rounded-md p-2 text-white">
-                        {"Save"}
-                    </button>
-                </div>
-            </form>
+            <div>
+              <input type="radio" name="difficulty_easy" value="Easy"
+                        checked={*difficulty == "Easy"}
+                        onchange={handle_difficulty_change.clone()}/>
+                    <label for="difficulty_easy">{"Easy mode"}</label>
+
+                    <input type="radio" name="difficulty_hard" value="Hard"
+                        checked={*difficulty == "Hard"}
+                        onchange={handle_difficulty_change}/>
+                    <label for="difficulty_hard">{"Hard mode (Play against minimax AI)"}</label>
+            </div>
             <div>
                 <input type="radio" id="choose_t" name="player_choice" value="T"
                        checked={*player_choice == 'T'}
@@ -83,7 +100,7 @@ pub fn TootAndOttoBoard() -> Html {
                 <small>{"Choose 'T' or 'O' to play."}</small>
                 <br/>
             </div>
-            <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
+             <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
                 { for (0..DEFAULT_OT_ROWS).map(|y| html! {
                     <div class="flex justify-center items-center gap-4 my-4">
                         { for (0..DEFAULT_OT_COLS).map(|x| html! {
@@ -390,16 +407,16 @@ pub fn TootAndOttoRules() -> Html {
     }
 }
 
-// fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
-//     let mut rng = rand::thread_rng();
-//     let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
-//         .filter(|&col| board[0][col].0 == ' ')
-//         .collect();
+fn make_random_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
+    let mut rng = rand::thread_rng();
+    let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
+        .filter(|&col| board[0][col].0 == ' ')
+        .collect();
 
-//     if let Some(&col) = available_cols.choose(&mut rng) {
-//         if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
-//             let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
-//             board[row][col] = (computer_choice, 2);
-//         }
-//     }
-// }
+    if let Some(&col) = available_cols.choose(&mut rng) {
+        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+            let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
+            board[row][col] = (computer_choice, 2);
+        }
+    }
+}
