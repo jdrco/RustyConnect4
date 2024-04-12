@@ -1,5 +1,5 @@
 use crate::components::winner_modal::WinnerModal;
-use crate::constant::{COMPUTER, DEFAULT_C4_COLS, DEFAULT_C4_ROWS, EMPTY, USER};
+use crate::constant::{COMPUTER, EMPTY, USER}; //,columns, rows, EMPTY, USER};
 use gloo_console::log;
 use gloo_timers::callback::Timeout;
 use rand::prelude::*;
@@ -10,7 +10,13 @@ use std::cmp::{max, min};
 
 #[function_component]
 pub fn Connect4Board() -> Html {
-    let board = use_state(|| vec![vec![EMPTY; DEFAULT_C4_COLS]; DEFAULT_C4_ROWS]);
+
+    let columns = use_state(|| 7);
+    let rows = use_state(|| 6);
+    let input_columns = use_state(|| 7); // Holds the input field value for columns
+    let input_rows = use_state(|| 6); // Holds the input field value for rows
+
+    let board = use_state(|| vec![vec![0; *columns]; *rows]);
     let winner = use_state(|| None::<usize>);
     let difficulty = use_state(|| "Easy".to_string());
     let last_move = use_state(|| None::<(usize, usize)>);
@@ -18,12 +24,15 @@ pub fn Connect4Board() -> Html {
 
     let make_computer_move =
         |board: &mut Vec<Vec<usize>>, difficulty: &String| -> Option<(usize, usize)> {
+            let rows = board.len();
+            let columns = board.get(0).map_or(0, |row| row.len());
+
             if *difficulty == "Easy" {
-                let available_cols: Vec<usize> = (0..DEFAULT_C4_COLS)
+                let available_cols: Vec<usize> = (0..columns)
                     .filter(|&col| board[0][col] == EMPTY)
                     .collect();
                 if let Some(&rand_col) = available_cols.choose(&mut rand::thread_rng()) {
-                    if let Some(row) = (0..DEFAULT_C4_ROWS)
+                    if let Some(row) = (0..rows)
                         .rev()
                         .find(|&r| board[r][rand_col] == EMPTY)
                     {
@@ -45,6 +54,7 @@ pub fn Connect4Board() -> Html {
 
     let handle_user_move = {
         let board = board.clone();
+        let rows = rows.clone();
         let winner = winner.clone();
         let difficulty = difficulty.clone();
         let last_move = last_move.clone();
@@ -55,7 +65,7 @@ pub fn Connect4Board() -> Html {
                 return;
             }
             let mut new_board = (*board).clone();
-            if let Some(row) = (0..DEFAULT_C4_ROWS)
+            if let Some(row) = (0..*rows)
                 .rev()
                 .find(|&row| new_board[row][col] == EMPTY)
             {
@@ -102,8 +112,53 @@ pub fn Connect4Board() -> Html {
         })
     };
 
+      // Updates the state when the form is submitted, not when the inputs change
+      let on_submit = {
+        let board = board.clone();
+        let rows = rows.clone();
+        let columns = columns.clone();
+        let input_rows = input_rows.clone();
+        let input_columns = input_columns.clone();
+        Callback::from(move |e: SubmitEvent| {
+            e.prevent_default();
+            rows.set(*input_rows);
+            columns.set(*input_columns);
+            board.set(vec![vec![0; *input_columns]; *input_rows]);
+        })
+    };
+
+    // Handlers to update input fields values
+    let on_rows_change = {
+        let input_rows = input_rows.clone();
+        Callback::from(move |e: InputEvent| {
+            if let Some(input) = e.target_dyn_into::<HtmlInputElement>() {
+                input_rows.set(input.value_as_number() as usize);
+            }
+        })
+    };
+
+    let on_cols_change = {
+        let input_columns = input_columns.clone();
+        Callback::from(move |e: InputEvent| {
+            if let Some(input) = e.target_dyn_into::<HtmlInputElement>() {
+                input_columns.set(input.value_as_number() as usize);
+            }
+        })
+    };
+
     html! {
         <>
+            <form onsubmit={on_submit}>
+                <div>
+                    <label for="rows_input">{"Rows:"}</label>
+                    <input id="rows_input" type="number" min="4" max="10" value={(*input_rows).to_string()} oninput={on_rows_change} />
+                </div>
+                <div>
+                    <label for="cols_input">{"Columns:"}</label>
+                    <input id="cols_input" type="number" min="4" max="10" value={(*input_columns).to_string()} oninput={on_cols_change} />
+                </div>
+                <button type="submit">{"Submit Board Size"}</button>
+            </form>
             <div class="">
                 <div class="post">
                     <div>{"Game"}</div>
@@ -121,9 +176,9 @@ pub fn Connect4Board() -> Html {
                     <label for="difficulty_hard">{"Hard mode (Play against minimax AI)"}</label>
                 </div>
                 <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg px-6">
-                    { for (0..DEFAULT_C4_ROWS).map(|y| html! {
+                    { for (0..*rows).map(|y| html! {
                         <div class="flex justify-center items-center">
-                            { for (0..DEFAULT_C4_COLS).map(|x| html! {
+                            { for (0..*columns).map(|x| html! {
                                 <div class="relative flex w-full py-2  items-center justify-center" onclick={handle_user_move.reform(move |_| x)}>
                                     <div class="absolute inset-0 z-[-1]" />
                                     <div class={
@@ -168,9 +223,9 @@ pub fn check_winner(board: &Vec<Vec<usize>>) -> Option<usize> {
                     let mut nx = x as isize + dx;
                     let mut ny = y as isize + dy;
                     while nx >= 0
-                        && nx < DEFAULT_C4_COLS as isize
+                        && nx < columns as isize
                         && ny >= 0
-                        && ny < DEFAULT_C4_ROWS as isize
+                        && ny < rows as isize
                         && board[ny as usize][nx as usize] == current
                     {
                         count += 1;
@@ -188,7 +243,8 @@ pub fn check_winner(board: &Vec<Vec<usize>>) -> Option<usize> {
 }
 
 fn get_next_open_row(board: &Vec<Vec<usize>>, col: usize) -> Option<usize> {
-    (0..DEFAULT_C4_ROWS)
+    let rows = board.len(); // This gives you the number of rows
+    (0..rows)
         .rev()
         .find(|&row| board[row][col] == EMPTY)
 }
@@ -198,7 +254,7 @@ fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
     let columns = board.get(0).map_or(0, |row| row.len()); // This gives you the number of columns in the first row
 
     let mut score = 0;
-    let center_col = DEFAULT_C4_COLS / 2;
+    let center_col = columns / 2;
 
     let center_count = board
         .iter()
@@ -208,31 +264,31 @@ fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
 
     // Horizontal windows
     for row in board {
-        for col in 0..=DEFAULT_C4_COLS - 4 {
+        for col in 0..=columns - 4 {
             let window = &row[col..col + 4];
             score += evaluate_window(window, piece);
         }
     }
 
     // Vertical windows
-    for col in 0..DEFAULT_C4_COLS {
-        for row in 0..=DEFAULT_C4_ROWS - 4 {
+    for col in 0..columns {
+        for row in 0..=rows - 4 {
             let window = (0..4).map(|i| board[row + i][col]).collect::<Vec<_>>();
             score += evaluate_window(&window, piece);
         }
     }
 
     // Positive Diagonal windows
-    for row in 0..=DEFAULT_C4_ROWS - 4 {
-        for col in 0..=DEFAULT_C4_COLS - 4 {
+    for row in 0..=rows - 4 {
+        for col in 0..=columns - 4 {
             let window = (0..4).map(|i| board[row + i][col + i]).collect::<Vec<_>>();
             score += evaluate_window(&window, piece);
         }
     }
 
     // Negative Diagonal windows
-    for row in 3..DEFAULT_C4_ROWS {
-        for col in 0..=DEFAULT_C4_COLS - 4 {
+    for row in 3..rows {
+        for col in 0..=columns - 4 {
             let window = (0..4).map(|i| board[row - i][col + i]).collect::<Vec<_>>();
             score += evaluate_window(&window, piece);
         }
@@ -241,7 +297,7 @@ fn score_position(board: &Vec<Vec<usize>>, piece: usize) -> isize {
     score
 }
 
-fn minimax(
+pub fn minimax(
     board: &Vec<Vec<usize>>,
     depth: usize,
     mut alpha: isize,
@@ -255,7 +311,9 @@ fn minimax(
     if is_maximizing {
         let mut value = isize::MIN;
         let mut column = usize::MAX;
-        for col in 0..DEFAULT_C4_COLS {
+
+        let columns = board.get(0).map_or(0, |row| row.len()); // This gives you the number of columns in the first row
+        for col in 0..columns {
             if let Some(row) = get_next_open_row(board, col) {
                 let mut temp_board = board.clone();
                 temp_board[row][col] = COMPUTER;
@@ -274,7 +332,9 @@ fn minimax(
     } else {
         let mut value = isize::MAX;
         let mut column = usize::MAX;
-        for col in 0..DEFAULT_C4_COLS {
+
+        let columns = board.get(0).map_or(0, |row| row.len()); // This gives you the number of columns in the first row
+        for col in 0..columns {
             if let Some(row) = get_next_open_row(board, col) {
                 let mut temp_board = board.clone();
                 temp_board[row][col] = USER;
