@@ -861,6 +861,7 @@ name = "rusty-connect4-tmp"
 version = "0.1.0"
 dependencies = [
  "gloo-console 0.3.0",
+ "gloo-timers 0.3.0",
  "rand",
  "web-sys",
  "yew",
