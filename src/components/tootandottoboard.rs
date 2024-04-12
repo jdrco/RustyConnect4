@@ -372,32 +372,34 @@ fn negamax(
     let mut best_value = isize::MIN;
     let mut best_col = usize::MAX;
 
-    for x in 0..DEFAULT_OT_COLS {
-        if let Some(y) = (0..DEFAULT_OT_ROWS).rev().find(|&y| board[y][x].0 == ' ') {
-            let mut new_board = board.clone();
-            new_board[y][x] = if current_player == 1 {
-                ('T', player_turn)
-            } else {
-                ('O', player_turn)
-            };
+    for piece in &['T', 'O'] {
+        for x in 0..DEFAULT_OT_COLS {
+            if let Some(y) = (0..DEFAULT_OT_ROWS).rev().find(|&y| board[y][x].0 == ' ') {
+                let mut new_board = board.clone();
+                new_board[y][x] = if current_player == 1 {
+                    (*piece, player_turn)
+                } else {
+                    (*piece, player_turn)
+                };
 
-            let (_, value) = negamax(
-                &new_board,
-                depth - 1,
-                beta.wrapping_neg(),
-                alpha.wrapping_neg(),
-                3 - current_player,
-                player_turn,
-            );
+                let (_, value) = negamax(
+                    &new_board,
+                    depth - 1,
+                    beta.wrapping_neg(),
+                    alpha.wrapping_neg(),
+                    3 - current_player,
+                    player_turn,
+                );
 
-            let value = -value;
-            if value > best_value {
-                best_value = value;
-                best_col = x;
-            }
-            alpha = max(alpha, value);
-            if alpha >= beta {
-                break; // Beta cut-off
+                let value = -value;
+                if value > best_value {
+                    best_value = value;
+                    best_col = x;
+                }
+                alpha = max(alpha, value);
+                if alpha >= beta {
+                    break; // Beta cut-off
+                }
             }
         }
     }
@@ -411,7 +413,7 @@ fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
     let mut best_piece = 'T';
 
     for &current_piece in &['T', 'O'] {
-        let (col, value) = negamax(&board, 2, isize::MIN, isize::MAX, player_turn, player_turn);
+        let (col, value) = negamax(&board, 4, isize::MIN, isize::MAX, player_turn, player_turn);
         if value > best_value && col < DEFAULT_OT_COLS {
             best_value = value;
             best_col = col;
