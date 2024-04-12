@@ -375,6 +375,11 @@ fn negamax(
             let mut new_board = board.clone();
             new_board[row][col] = (piece, player_turn);
 
+            // Log the row and piece being checked
+            web_sys::console::log_1(
+                &format!("Checking row {} at col {} with piece {}", row, col, piece).into(),
+            );
+
             for &next_piece in &['T', 'O'] {
                 let (_, value) = negamax(
                     &new_board,
@@ -398,6 +403,14 @@ fn negamax(
             }
         }
     }
+
+    web_sys::console::log_1(
+        &format!(
+            "Best col: {}, Best score: {}, Checking piece: {}",
+            best_col, best_value, piece,
+        )
+        .into(),
+    );
 
     (best_col, best_value)
 }
@@ -424,7 +437,7 @@ fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
         }
     }
 
-    if best_col < DEFAULT_OT_COLS {
+    if best_col <= DEFAULT_OT_COLS {
         if let Some(row) = (0..DEFAULT_OT_ROWS)
             .rev()
             .find(|&r| board[r][best_col].0 == ' ')
