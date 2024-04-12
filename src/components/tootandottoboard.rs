@@ -246,12 +246,14 @@ fn check_sequence_score(
     }
 
     if match_count == sequence.len() - 1 && empty_count == 1 {
+        // Winning condition or blocking
         if piece == sequence[0] {
             score += win_score;
         } else {
             score -= block_score;
         }
     } else {
+        // Advance scoring
         score +=
             (match_count as isize * advance_score) - (empty_count as isize * block_advance_score);
 
@@ -260,6 +262,18 @@ fn check_sequence_score(
             || (piece == 'T' && opponent_count < 2 && sequence[0] == 'T')
         {
             score -= block_score;
+        }
+
+        // Penalize if creating TO_T or T_OT
+        if match_count == sequence.len() - 2 && empty_count == 2 {
+            if sequence[0] == piece {
+                score -= block_advance_score;
+            }
+        }
+
+        // Value TT with empty spaces on either side
+        if match_count == sequence.len() && empty_count == 2 {
+            score += win_score;
         }
     }
 
@@ -330,6 +344,13 @@ fn evaluate_board(
                         }
                     }
                 }
+
+                // Weight the center of the board more
+                let center_bias = 1.0
+                    / (1.0
+                        + ((x as f64 - DEFAULT_OT_COLS as f64 / 2.0).abs()
+                            + (y as f64 - DEFAULT_OT_ROWS as f64 / 2.0).abs()));
+                score += (WIN_SCORE as f64 * center_bias) as isize;
             }
         }
     }
@@ -423,7 +444,7 @@ fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
     for &current_piece in &['T', 'O'] {
         let (col, value) = negamax(
             board,
-            4,
+            5,
             isize::MIN,
             isize::MAX,
             player_turn,
