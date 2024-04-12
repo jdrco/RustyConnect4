@@ -1,4 +1,6 @@
 use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
+use rand::prelude::*;
+use std::cmp::{max, min};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
@@ -8,20 +10,46 @@ pub fn TootAndOttoBoard() -> Html {
     let board = use_state(|| vec![vec![(' ', 0); DEFAULT_OT_COLS]; DEFAULT_OT_ROWS]);
     let player_turn = use_state(|| 1);
     let player_choice = use_state(|| 'T');
+    let winner = use_state(|| None::<usize>);
+    let difficulty = use_state(|| "Easy".to_string());
+    let last_move = use_state(|| None::<(usize, usize)>);
 
     let handle_click = {
         let board = board.clone();
         let player_turn = player_turn.clone();
         let player_choice = player_choice.clone();
+        let winner = winner.clone();
+        let difficulty = difficulty.clone();
         Callback::from(move |x: usize| {
-            let mut new_board = (*board).clone();
-            if let Some(y) = (0..DEFAULT_OT_ROWS)
-                .rev()
-                .find(|&y| new_board[y][x].0 == ' ')
-            {
-                new_board[y][x] = (*player_choice, *player_turn);
-                board.set(new_board);
-                player_turn.set(if *player_turn == 1 { 2 } else { 1 });
+            if winner.is_none() {
+                let mut new_board = (*board).clone();
+                if let Some(y) = (0..DEFAULT_OT_ROWS)
+                    .rev()
+                    .find(|&y| new_board[y][x].0 == ' ')
+                {
+                    new_board[y][x] = (*player_choice, *player_turn);
+                    if let Some(win_player) = check_winner(&new_board) {
+                        winner.set(Some(win_player));
+                    } else if is_full_board(&new_board) {
+                        winner.set(Some(3));
+                    } else {
+                        player_turn.set(2);
+
+                        if *difficulty == "Hard" {
+                            make_computer_move(&mut new_board);
+                        } else {
+                            make_random_computer_move(&mut new_board);
+                        }
+                        if let Some(win_player) = check_winner(&new_board) {
+                            winner.set(Some(win_player));
+                        } else if is_full_board(&new_board) {
+                            winner.set(Some(3));
+                        } else {
+                            player_turn.set(1);
+                        }
+                    }
+                    board.set(new_board);
+                }
             }
         })
     };
@@ -34,18 +62,27 @@ pub fn TootAndOttoBoard() -> Html {
         })
     };
 
+    let handle_difficulty_change = {
+        let difficulty = difficulty.clone();
+        Callback::from(move |e: Event| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            difficulty.set(input.value());
+        })
+    };
+
     html! {
         <div>
-            <div class={HEADER}><b>{"Enter Your Name"}</b></div>
-            <div class={RED_BAR}></div>
-            <form class="col-md-offset-4 col-md-8">
-                <div class="col-md-offset-3 col-md-8">
-                    <input id="textbox1" type="text" placeholder="Your Name"/>
-                    <button class="bg-violet-500 rounded-md p-2 text-white">
-                        {"Save"}
-                    </button>
-                </div>
-            </form>
+            <div>
+              <input type="radio" name="difficulty_easy" value="Easy"
+                        checked={*difficulty == "Easy"}
+                        onchange={handle_difficulty_change.clone()}/>
+                    <label for="difficulty_easy">{"Easy mode"}</label>
+
+                    <input type="radio" name="difficulty_hard" value="Hard"
+                        checked={*difficulty == "Hard"}
+                        onchange={handle_difficulty_change}/>
+                    <label for="difficulty_hard">{"Hard mode (Play against minimax AI)"}</label>
+            </div>
             <div>
                 <input type="radio" id="choose_t" name="player_choice" value="T"
                        checked={*player_choice == 'T'}
@@ -63,7 +100,7 @@ pub fn TootAndOttoBoard() -> Html {
                 <small>{"Choose 'T' or 'O' to play."}</small>
                 <br/>
             </div>
-            <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
+             <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
                 { for (0..DEFAULT_OT_ROWS).map(|y| html! {
                     <div class="flex justify-center items-center gap-4 my-4">
                         { for (0..DEFAULT_OT_COLS).map(|x| html! {
@@ -85,6 +122,325 @@ pub fn TootAndOttoBoard() -> Html {
                     </div>
                 })}
             </div>
+            { if let Some(winner_player) = *winner {
+                popup_modal(winner_player)
+            } else {
+                html! {}
+            }}
+        </div>
+
+    }
+}
+
+fn check_winner(board: &Vec<Vec<(char, usize)>>) -> Option<usize> {
+    let toot_sequence = ['T', 'O', 'O', 'T'];
+    let otto_sequence = ['O', 'T', 'T', 'O'];
+    let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
+    let mut found_toot = false;
+    let mut found_otto = false;
+
+    for y in 0..DEFAULT_OT_ROWS {
+        for x in 0..DEFAULT_OT_COLS {
+            if board[y][x].0 != ' ' {
+                for &(dy, dx) in &directions {
+                    if check_sequence(board, x, y, dx, dy, &toot_sequence) {
+                        found_toot = true;
+                    }
+                    if check_sequence(board, x, y, dx, dy, &otto_sequence) {
+                        found_otto = true;
+                    }
+                }
+            }
+        }
+    }
+
+    match (found_toot, found_otto) {
+        (true, false) => Some(1), // Player 1 wins with TOOT
+        (false, true) => Some(2), // Player 2 wins with OTTO
+        (true, true) => Some(3),  // Both sequences formed, possible in rare scenarios
+        _ => None,
+    }
+}
+
+fn check_sequence(
+    board: &Vec<Vec<(char, usize)>>,
+    x: usize,
+    y: usize,
+    dx: isize,
+    dy: isize,
+    sequence: &[char],
+) -> bool {
+    for (index, &item) in sequence.iter().enumerate() {
+        let nx = x as isize + index as isize * dx;
+        let ny = y as isize + index as isize * dy;
+
+        if nx < 0
+            || nx >= DEFAULT_OT_COLS as isize
+            || ny < 0
+            || ny >= DEFAULT_OT_ROWS as isize
+            || board[ny as usize][nx as usize].0 != item
+        {
+            return false;
+        }
+    }
+    true
+}
+
+fn is_full_board(board: &Vec<Vec<(char, usize)>>) -> bool {
+    board.iter().all(|row| row.iter().all(|(c, _)| *c != ' '))
+}
+
+fn check_sequence_score(
+    board: &Vec<Vec<(char, usize)>>,
+    x: usize,
+    y: usize,
+    dx: isize,
+    dy: isize,
+    sequence: &[char],
+    piece: char,
+    win_score: isize,
+    block_score: isize,
+    advance_score: isize,
+    block_advance_score: isize,
+) -> isize {
+    let mut score = 0;
+    let mut match_count = 0;
+    let mut empty_count = 0;
+    let mut opponent_count = 0;
+
+    for (index, &char) in sequence.iter().enumerate() {
+        let nx = x as isize + index as isize * dx;
+        let ny = y as isize + index as isize * dy;
+
+        if nx < 0 || nx >= DEFAULT_OT_COLS as isize || ny < 0 || ny >= DEFAULT_OT_ROWS as isize {
+            continue;
+        }
+
+        if board[ny as usize][nx as usize].0 == char {
+            match_count += 1;
+        } else if board[ny as usize][nx as usize].0 == ' ' {
+            empty_count += 1;
+        } else {
+            opponent_count += 1;
+        }
+    }
+
+    if match_count == sequence.len() - 1 && empty_count == 1 {
+        if piece == sequence[0] {
+            score += win_score;
+        } else {
+            score -= block_score;
+        }
+    } else {
+        score +=
+            (match_count as isize * advance_score) - (empty_count as isize * block_advance_score);
+
+        // Penalize if placing the third 'O' or 'T' without blocking TOOT
+        if (piece == 'O' && opponent_count < 2 && sequence[0] == 'O')
+            || (piece == 'T' && opponent_count < 2 && sequence[0] == 'T')
+        {
+            score -= block_score;
+        }
+    }
+
+    score
+}
+
+fn evaluate_board(board: &Vec<Vec<(char, usize)>>, piece: char) -> isize {
+    let mut score = 0;
+
+    const WIN_SCORE: isize = 10000;
+    const BLOCK_SCORE: isize = 15000; // Increased block score
+    const ADVANCE_SCORE: isize = 100;
+    const BLOCK_ADVANCE_SCORE: isize = 200; // Increased block advance score
+
+    let otto = ['O', 'T', 'T', 'O'];
+    // let toot = ['T', 'O', 'O', 'T'];
+    let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
+
+    for y in 0..DEFAULT_OT_ROWS {
+        for x in 0..DEFAULT_OT_COLS {
+            for &(dy, dx) in &directions {
+                let otto_score = check_sequence_score(
+                    board,
+                    x,
+                    y,
+                    dx,
+                    dy,
+                    &otto,
+                    piece,
+                    WIN_SCORE,
+                    BLOCK_SCORE,
+                    ADVANCE_SCORE,
+                    BLOCK_ADVANCE_SCORE,
+                );
+                // let toot_score = check_sequence_score(
+                //     board,
+                //     x,
+                //     y,
+                //     dx,
+                //     dy,
+                //     &toot,
+                //     piece,
+                //     WIN_SCORE,
+                //     BLOCK_SCORE,
+                //     ADVANCE_SCORE,
+                //     BLOCK_ADVANCE_SCORE,
+                // );
+                // score += otto_score + toot_score;
+                score += otto_score;
+            }
+        }
+    }
+
+    score
+}
+
+fn minimax(
+    board: &Vec<Vec<(char, usize)>>,
+    depth: usize,
+    alpha: isize,
+    beta: isize,
+    is_maximizing: bool,
+) -> (usize, isize) {
+    if depth == 0 || check_winner(board).is_some() {
+        let eval_piece = if is_maximizing { 'O' } else { 'T' };
+        let score = evaluate_board(board, eval_piece);
+        println!("Leaf node score: {}, depth: {}", score, depth);
+        return (0, score);
+    }
+
+    let mut alpha = alpha;
+    let mut beta = beta;
+    let mut best_col = usize::MAX;
+    let mut value = if is_maximizing {
+        isize::MIN
+    } else {
+        isize::MAX
+    };
+
+    let current_piece = if is_maximizing { 'O' } else { 'T' };
+
+    for col in 0..DEFAULT_OT_COLS {
+        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+            let mut temp_board = board.clone();
+            temp_board[row][col] = (current_piece, if is_maximizing { 2 } else { 1 });
+
+            let (_, new_score) = minimax(&temp_board, depth - 1, alpha, beta, !is_maximizing);
+
+            if is_maximizing {
+                if new_score > value {
+                    value = new_score;
+                    best_col = col;
+                }
+                alpha = max(alpha, value);
+            } else {
+                if new_score < value {
+                    value = new_score;
+                    best_col = col;
+                }
+                beta = min(beta, value);
+            }
+
+            if alpha >= beta {
+                break;
+            }
+        }
+    }
+    (best_col, value)
+}
+
+fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
+    // Iterate through the board to find locations where two 'T's are adjacent
+    for y in 0..DEFAULT_OT_ROWS {
+        for x in 0..DEFAULT_OT_COLS - 1 {
+            if board[y][x].0 == 'T' && board[y][x + 1].0 == 'T' {
+                // Check if there's a valid position to place an 'O' on the left side
+                if x > 0 && board[y][x - 1].0 == ' ' {
+                    board[y][x - 1] = ('O', 2); // Assign player 2 (Yellow)
+                    return; // Computer move made
+                }
+                // Check if there's a valid position to place an 'O' on the right side
+                if x < DEFAULT_OT_COLS - 2 && board[y][x + 2].0 == ' ' {
+                    board[y][x + 2] = ('O', 2); // Assign player 2 (Yellow)
+                    return; // Computer move made
+                }
+            }
+        }
+    }
+
+    // Iterate through the board to find locations where an 'O' is followed by a 'T'
+    for y in 0..DEFAULT_OT_ROWS {
+        for x in 0..DEFAULT_OT_COLS - 1 {
+            if board[y][x].0 == 'O' && board[y][x + 1].0 == 'T' {
+                // Check if there's a valid position to place a 'T' beside the 'OT'
+                if x > 0 && board[y][x - 1].0 == ' ' {
+                    board[y][x - 1] = ('T', 2); // Assign player 2 (Yellow)
+                    return; // Computer move made
+                }
+                if x < DEFAULT_OT_COLS - 2 && board[y][x + 2].0 == ' ' {
+                    board[y][x + 2] = ('T', 2); // Assign player 2 (Yellow)
+                    return; // Computer move made
+                }
+            }
+        }
+    }
+
+    // Iterate through the board to find locations where a single 'O' is present
+    for y in 0..DEFAULT_OT_ROWS {
+        for x in 0..DEFAULT_OT_COLS - 1 {
+            if board[y][x].0 == 'O' {
+                // Check if there's a valid position to place a 'T' beside the 'O'
+                if x > 0 && board[y][x - 1].0 == ' ' {
+                    // Check if placing 'T' beside 'OO' would occur
+                    if x < DEFAULT_OT_COLS - 2
+                        && board[y][x + 1].0 != 'O'
+                        && board[y][x + 2].0 != 'O'
+                    {
+                        board[y][x - 1] = ('T', 2); // Assign player 2 (Yellow)
+                        return; // Computer move made
+                    }
+                }
+                if x < DEFAULT_OT_COLS - 1 && board[y][x + 1].0 == ' ' {
+                    // Check if placing 'T' beside 'OO' would occur
+                    if x > 0 && board[y][x - 1].0 != 'O' && board[y][x - 1].0 != 'O' {
+                        board[y][x + 1] = ('T', 2); // Assign player 2 (Yellow)
+                        return; // Computer move made
+                    }
+                }
+            }
+        }
+    }
+
+    // If no immediate OT or TO pattern is found, make a standard minimax move
+    let (col_o, _) = minimax(board, 6, isize::MIN, isize::MAX, true);
+    if let Some(row) = (0..DEFAULT_OT_ROWS)
+        .rev()
+        .find(|&r| board[r][col_o].0 == ' ')
+    {
+        board[row][col_o] = ('O', 2); // Assign player 2 (Yellow)
+    }
+}
+
+fn popup_modal(winner: usize) -> Html {
+    html! {
+        <div class={"modal fixed z-1 left-0 top-0 w-full h-full overflow-auto bg-black bg-opacity-40"}>
+            <div class={"modal-content bg-gray-100 mx-auto my-15 p-5 border border-gray-400 w-4/5"}>
+               {
+                if winner == 1 {
+                    html! {<h3>{"Player 1 Wins!"}</h3>}
+                } else if winner == 2 {
+                    html! {<h3>{"Player 2 Wins!"}</h3>}
+                } else {
+                    html! {<h3>{"It's a Draw!"}</h3>}
+               }
+            }
+                <form>
+                    <button class="bg-violet-500 rounded-md p-2 text-white">
+                        {"Play Again"}
+                    </button>
+                </form>
+            </div>
         </div>
     }
 }
@@ -105,11 +461,25 @@ pub fn TootAndOttoRules() -> Html {
                     <li>{"A new game describes which player is TOOT and which is OTTO"}</li>
                     <li>{"Select the disc type T or O that you want to place"}</li>
                     <li>{"Click on the desired column on the game board to place your disc"}</li>
-                    <li>{"Try to spell TOOT or OTTO based on your winning combination, either horizontally or vertically or diagonally"}</li>
+                    <li>{"Try to spell TOOT or OTTO based on your winning combination, either horizontally, vertically or diagonally"}</li>
                 </ul>
                 <br/>
                 <p>{"For More information on TOOT-OTTO click "}<a href="https://boardgamegeek.com/boardgame/19530/toot-and-otto">{"here"}</a></p>
             </div>
         </div>
+    }
+}
+
+fn make_random_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
+    let mut rng = rand::thread_rng();
+    let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
+        .filter(|&col| board[0][col].0 == ' ')
+        .collect();
+
+    if let Some(&col) = available_cols.choose(&mut rng) {
+        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+            let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
+            board[row][col] = (computer_choice, 2);
+        }
     }
 }
