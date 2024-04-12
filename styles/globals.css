@@ -1,35 +1,89 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 .theme-regular {
-  --boardPrimaryBg: theme('colors.blue.400');
-  --chipPrimaryBg: theme('colors.red.400');
-  --chipSecondaryBg: theme('colors.yellow.400');
+    --boardPrimaryBg: theme('colors.blue.400');
+    --chipPrimaryBg: theme('colors.red.400');
+    --chipSecondaryBg: theme('colors.yellow.400');
 }
 
 .theme-colorblind {
-  --boardPrimaryBg: theme('colors.cyan.500'); /* Cyan replaces blue for better visibility */
-  --chipPrimaryBg: theme('colors.orange.600'); /* Orange replaces red to avoid confusion with green */
-  --chipSecondaryBg: theme('colors.lime.500'); /* Lime green replaces yellow for clearer visibility */
+    --boardPrimaryBg: theme('colors.cyan.500');
+    /* Cyan replaces blue for better visibility */
+    --chipPrimaryBg: theme('colors.orange.600');
+    /* Orange replaces red to avoid confusion with green */
+    --chipSecondaryBg: theme('colors.lime.500');
+    /* Lime green replaces yellow for clearer visibility */
+}
+
+
+/* Protanopia & Protanomaly Friendly Theme */
+
+.theme-protanopia {
+    --boardPrimaryBg: theme('colors.gray.500');
+    /* Neutral gray to avoid color confusion */
+    --chipPrimaryBg: theme('colors.fuchsia.600');
+    /* Magenta for visibility */
+    --chipSecondaryBg: theme('colors.cyan.500');
+    /* Cyan for contrast with magenta */
+}
+
+
+/* Deuteranopia & Deuteranomaly Friendly Theme */
+
+.theme-deuteranopia {
+    --boardPrimaryBg: theme('colors.gray.500');
+    /* Neutral gray, comfortable for the eye */
+    --chipPrimaryBg: theme('colors.orange.600');
+    /* Orange, distinguishable from green */
+    --chipSecondaryBg: theme('colors.blue.700');
+    /* Blue, for a clear contrast with orange */
+}
+
+
+/* Tritanopia Friendly Theme */
+
+.theme-tritanopia {
+    --boardPrimaryBg: theme('colors.gray.500');
+    /* Neutral to minimize strain */
+    --chipPrimaryBg: theme('colors.red.500');
+    /* Red, as it's distinguishable from blue */
+    --chipSecondaryBg: theme('colors.green.500');
+    /* Green, to contrast with red for Tritanopia */
 }
 
 .navbar-item {
-  background-color: red;
-  /* Set background color */
-  padding: 10px 20px;
-  /* Adjust padding to desired size */
-  color: #fff;
-  /* Set text color */
-  text-decoration: none;
-  /* Remove underline from links */
-  display: inline-block;
-  /* Ensure elements are displayed inline */
-  margin-right: 10px;
-  /* Adjust margin between navbar items */
+    background-color: red;
+    /* Set background color */
+    padding: 10px 20px;
+    /* Adjust padding to desired size */
+    color: #fff;
+    /* Set text color */
+    text-decoration: none;
+    /* Remove underline from links */
+    display: inline-block;
+    /* Ensure elements are displayed inline */
+    margin-right: 10px;
+    /* Adjust margin between navbar items */
 }
 
 .navbar-item:hover {
-  background-color: rebeccapurple;
-  /* Change background color on hover */
+    background-color: rebeccapurple;
+    /* Change background color on hover */
 }
+
+@keyframes drop {
+    0% {
+        transform: translateY(-100px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.animate-drop {
+    animation: drop 0.5s ease-out;
+}
+

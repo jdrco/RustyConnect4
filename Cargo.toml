@@ -11,3 +11,4 @@ web-sys = "0.3.69"
 yew-router = { git = "https://github.com/yewstack/yew.git" }
 gloo-console = "0.3.0"
 rand = "0.8.5"
+gloo-timers = "0.3.0"

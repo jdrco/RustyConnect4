@@ -365,6 +365,8 @@ fn popup_modal(winner: usize) -> Html {
     }
 }
 
+// Add code here
+
 #[function_component]
 pub fn TootAndOttoRules() -> Html {
     html! {
