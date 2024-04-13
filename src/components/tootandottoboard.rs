@@ -16,6 +16,8 @@ pub fn TootAndOttoBoard() -> Html {
     let difficulty = use_state(|| "Easy".to_string());
     let last_move = use_state(|| None::<(usize, usize)>);
     let is_user_turn = use_state(|| true);
+    let player_t_pieces = use_state(|| vec![6, 6]); // First idx is user, second is computer
+    let player_o_pieces = use_state(|| vec![6, 6]); 
 
     let handle_click = {
         let board = board.clone();
@@ -25,6 +27,8 @@ pub fn TootAndOttoBoard() -> Html {
         let difficulty = difficulty.clone();
         let last_move = last_move.clone();
         let is_user_turn = is_user_turn.clone();
+        let player_t_pieces = player_t_pieces.clone();
+        let player_o_pieces = player_o_pieces.clone();
 
         Callback::from(move |x: usize| {
             if !*is_user_turn {
@@ -32,6 +36,8 @@ pub fn TootAndOttoBoard() -> Html {
             }
             if winner.is_none() {
                 let mut new_board = (*board).clone();
+                let mut new_player_t_pieces= (*player_t_pieces).clone();
+                let mut new_player_o_pieces= (*player_o_pieces).clone();
                 if let Some(y) = (0..DEFAULT_OT_ROWS)
                     .rev()
                     .find(|&y| new_board[y][x].0 == ' ')
@@ -40,6 +46,13 @@ pub fn TootAndOttoBoard() -> Html {
                     board.set(new_board.clone());
                     last_move.set(Some((x, y)));
                     is_user_turn.set(false);
+                    if *player_choice ==  'T' {
+                        new_player_t_pieces[0] -= 1;
+                        player_t_pieces.set(new_player_t_pieces.clone());
+                    } else {
+                        new_player_o_pieces[0] -= 1;
+                        player_o_pieces.set(new_player_o_pieces.clone());
+                    }
 
                     if let Some(win_player) = check_winner(&new_board) {
                         winner.set(Some(win_player));
@@ -53,15 +66,21 @@ pub fn TootAndOttoBoard() -> Html {
                         let player_turn = player_turn.clone();
                         let is_user_turn = is_user_turn.clone();
                         let board = board.clone();
+                        let new_player_t_pieces= new_player_t_pieces.clone();
+                        let new_player_o_pieces= new_player_o_pieces.clone();
+                        let player_t_pieces= player_t_pieces.clone();
+                        let player_o_pieces= player_o_pieces.clone();
                         player_turn.set(2);
 
                         let timeout = Timeout::new(500, move || {
                             let difficulty = difficulty.clone();
                             let mut new_board = new_board;
+                            let mut new_player_t_pieces= new_player_t_pieces;
+                            let mut new_player_o_pieces= new_player_o_pieces;
                             if *difficulty == "Hard" {
-                                make_computer_move(&mut new_board, 2);
+                                make_computer_move(&mut new_board, 2, &mut new_player_t_pieces, &mut new_player_o_pieces);
                             } else {
-                                make_random_computer_move(&mut new_board);
+                                make_random_computer_move(&mut new_board, &mut new_player_t_pieces, &mut new_player_o_pieces);
                             }
                             last_move.set(Some((x, y)));
                             if let Some(win_player) = check_winner(&new_board) {
@@ -72,6 +91,8 @@ pub fn TootAndOttoBoard() -> Html {
                                 player_turn.set(1);
                             }
                             board.set(new_board);
+                            player_t_pieces.set(new_player_t_pieces);
+                            player_o_pieces.set(new_player_o_pieces);
                             is_user_turn.set(true);
                         });
                         timeout.forget();
@@ -126,6 +147,16 @@ pub fn TootAndOttoBoard() -> Html {
                 <h4>{"Player Turn: "}{if *player_turn == 1 { "Player 1 (Red)" } else { "Player 2 (Yellow)" }}</h4>
                 <small>{"Choose 'T' or 'O' to play."}</small>
                 <br/>
+            </div>
+            <div>
+                <div>{"User has "}
+                    {player_o_pieces[0]}{" 'O's left and "}
+                    {player_t_pieces[0]}{" 'T's left"}
+                </div>
+                <div>{"Computer has "}
+                    {player_o_pieces[1]}{" 'O's left and "}
+                    {player_t_pieces[1]}{" 'T's left"}
+                </div>
             </div>
              <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
                 { for (0..DEFAULT_OT_ROWS).map(|y| html! {
@@ -445,7 +476,7 @@ fn negamax(
     (best_col, best_value)
 }
 
-fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
+fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize, player_t_pieces: &mut Vec<i32>, player_o_pieces: &mut Vec<i32>) {
     let mut best_col = usize::MAX;
     let mut best_value = isize::MIN;
     let mut best_piece = 'T';
@@ -473,6 +504,11 @@ fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
             .find(|&r| board[r][best_col].0 == ' ')
         {
             board[row][best_col] = (best_piece, player_turn);
+            if best_piece == 'T' {
+                player_t_pieces[1] -= 1;
+            } else {
+                player_o_pieces[1] -= 1;
+            }
         }
     }
 }
@@ -509,7 +545,7 @@ pub fn TootAndOttoRules() -> Html {
             <div class="container mx-auto mt-12" id="services">
                 <h5 class={HEADER}><b>{"How to Play TOOT-OTTO"}</b></h5>
                 <div class={RED_BAR}/>
-                <p>{"TOOT-OTTO is a fun strategy game for older players who like tic-tac-toe and checkers. One player is TOOT and the other player is OTTO. Both players can place both T's and O's, based on their choice. The first player who spells his or her winning combination - horizontally, vertically or diagonally - wins!"}</p>
+                <p>{"TOOT-OTTO is a fun strategy game for older players who like tic-tac-toe and checkers. One player is TOOT and the other player is OTTO. Both players can place both SIX T's and O's , based on their choice. The first player who spells his or her winning combination - horizontally, vertically or diagonally - wins!"}</p>
                 <br/>
                 <div><h5>{"To play TOOT-OTTO follow the following steps:"}</h5></div>
                 <ul>
@@ -525,7 +561,7 @@ pub fn TootAndOttoRules() -> Html {
     }
 }
 
-fn make_random_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
+fn make_random_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_t_pieces: &mut Vec<i32>, player_o_pieces: &mut Vec<i32>) {
     let mut rng = rand::thread_rng();
     let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
         .filter(|&col| board[0][col].0 == ' ')
@@ -535,6 +571,11 @@ fn make_random_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
         if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
             let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
             board[row][col] = (computer_choice, 2);
+            if computer_choice == 'T' {
+                player_t_pieces[1] -= 1;
+            } else {
+                player_o_pieces[1] -= 1;
+            }
         }
     }
 }
