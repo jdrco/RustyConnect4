@@ -1,8 +1,8 @@
 use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
+use gloo_timers::callback::Timeout;
 use rand::prelude::*;
 use std::cmp::{max, min};
 use web_sys::console;
-use gloo_timers::callback::Timeout;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
@@ -232,6 +232,7 @@ fn check_sequence_score(
     advance_score: isize,
     block_advance_score: isize,
 ) -> isize {
+    let otto = ['O', 'T', 'T', 'O'];
     let toot = ['T', 'O', 'O', 'T'];
     let mut score = 0;
     let mut match_count = 0;
@@ -254,53 +255,99 @@ fn check_sequence_score(
             opponent_count += 1;
         }
     }
-
-    if match_count == sequence.len() - 1 && empty_count == 1 {
-        if piece == sequence[0] {
-            score += win_score; // Increase score for winning sequences
-        } else {
-            score -= block_score;
-        }
+    if opponent_count == 4 {
+        score -= win_score * 2;
     } else {
-        score +=
-            (match_count as isize * advance_score) - (empty_count as isize * block_advance_score);
-
-        // Penalize if placing the third 'O' or 'T' without blocking TOOT
-        if (piece == 'O' && opponent_count < 2 && sequence[0] == 'O')
-            || (piece == 'T' && opponent_count < 2 && sequence[0] == 'T')
-        {
-            score -= block_score;
-        }
-
-        // Award sequences of 4 that match the desired patterns
-        if match_count == 3 && empty_count == 1 {
-            if (piece == 'O' && sequence[0] == 'O') || (piece == 'T' && sequence[0] == 'T') {
-                score += advance_score;
-            } else if piece == 'O' && sequence[3] == 'O' {
-                score += advance_score;
+        match match_count {
+            4 => {
+                score += win_score;
             }
-        }
-
-        // Punish for three consecutive T's
-        if match_count == 3 && empty_count == 0 && piece == 'T' {
-            score -= block_score;
-        }
-
-        // Penalize for TOOT sequence
-        if sequence == toot {
-            score -= win_score;
+            3 => {
+                // OTT_ (Good) vs. OTTT (Bad)
+                if empty_count == 1 {
+                    score += advance_score * 5; // Increase score for winning sequences
+                } else {
+                    score -= block_score;
+                }
+            }
+            2 => {
+                // OT__, _TT_, O__O, __TO
+                if empty_count == 2 {
+                    score += advance_score; // Increase score for winning sequences
+                } else if empty_count == 1 && opponent_count == 1 {
+                    // OTO_
+                    score -= block_advance_score * 4;
+                } else {
+                    // OTTT, OOTO
+                    score -= block_advance_score * 4;
+                }
+            }
+            1 => {
+                // _T__, __T_, T___, T__T
+                if empty_count == 3 {
+                    score += advance_score;
+                } else if empty_count == 2 && opponent_count == 1 {
+                    // _TT_, T_TO, TO_T
+                    score -= block_advance_score * 2;
+                } else if empty_count == 1 && opponent_count == 3 {
+                    // TTT_, _TTT, T_TT
+                    score -= win_score * 2;
+                } else if empty_count == 0 && opponent_count == 3 {
+                    score += block_score;
+                }
+            }
+            0 => {
+                if empty_count == 4 {
+                    score += advance_score;
+                } else if opponent_count == 3 {
+                    // TTT_, _TTT, T_TT
+                    score -= block_score;
+                } else if opponent_count == 4 {
+                    score -= win_score * 3;
+                }
+            }
+            _ => {}
         }
     }
+
+    // // Penalize if placing the third 'O' or 'T' without blocking TOOT
+    // if (piece == 'O' && opponent_count < 2 && sequence[0] == 'O')
+    //     || (piece == 'T' && opponent_count < 2 && sequence[0] == 'T')
+    // {
+    //     score -= block_score;
+    // }
+
+    // // Award sequences with potential to form OTTO or TTOO
+    // if match_count == 2 && empty_count == 2 && (piece == 'O' || piece == 'T') {
+    //     if sequence == otto {
+    //         score += win_score;
+    //     }
+    // }
+
+    // // Award sequences of 4 that match the desired patterns
+    // if match_count == 3 && empty_count == 1 {
+    //     if (piece == 'O' && sequence[0] == 'O') || (piece == 'T' && sequence[0] == 'T') {
+    //         score += advance_score;
+    //     } else if piece == 'O' && sequence[3] == 'O' {
+    //         score += advance_score;
+    //     }
+    // }
+
+    // // Punish for three or more consecutive T's
+    // if match_count >= 3 && piece == 'T' {
+    //     score -= block_score;
+    // }
+
     score
 }
 
 fn evaluate_board(board: &Vec<Vec<(char, usize)>>, piece: char) -> isize {
     let mut score = 0;
 
-    const WIN_SCORE: isize = 15000;
-    const BLOCK_SCORE: isize = 12000; // Increased block score
-    const ADVANCE_SCORE: isize = 200;
-    const BLOCK_ADVANCE_SCORE: isize = 200; // Increased block advance score
+    const WIN_SCORE: isize = 100;
+    const BLOCK_SCORE: isize = 90; // Increased block score
+    const ADVANCE_SCORE: isize = 10;
+    const BLOCK_ADVANCE_SCORE: isize = 10; // Increased block advance score
 
     let otto = ['O', 'T', 'T', 'O'];
     let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
@@ -322,32 +369,9 @@ fn evaluate_board(board: &Vec<Vec<(char, usize)>>, piece: char) -> isize {
                     BLOCK_ADVANCE_SCORE,
                 );
                 score += otto_score;
-
-                // Penalize placing 'T' beside 'OO' or 'O' beside 'O'
-                if board[y][x].0 == 'T' {
-                    if x > 0 && x < DEFAULT_OT_COLS - 1 {
-                        if board[y][x - 1].0 == 'O' && board[y][x + 1].0 == 'O' {
-                            score -= BLOCK_SCORE;
-                        }
-                    }
-                } else if board[y][x].0 == 'O' {
-                    if x > 0 && x < DEFAULT_OT_COLS - 1 {
-                        if board[y][x - 1].0 == 'O' || board[y][x + 1].0 == 'O' {
-                            score -= BLOCK_SCORE;
-                        }
-                    }
-                }
-
-                // Weight the center of the board more
-                let center_bias = 1.0
-                    / (1.0
-                        + ((x as f64 - DEFAULT_OT_COLS as f64 / 2.0).abs()
-                            + (y as f64 - DEFAULT_OT_ROWS as f64 / 2.0).abs()));
-                score += (WIN_SCORE as f64 * center_bias) as isize;
             }
         }
     }
-
     score
 }
 
@@ -429,7 +453,7 @@ fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
     for &current_piece in &['T', 'O'] {
         let (col, value) = negamax(
             board,
-            4,
+            5,
             isize::MIN,
             isize::MAX,
             player_turn,
