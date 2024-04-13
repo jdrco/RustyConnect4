@@ -232,8 +232,6 @@ fn check_sequence_score(
     advance_score: isize,
     block_advance_score: isize,
 ) -> isize {
-    let otto = ['O', 'T', 'T', 'O'];
-    let toot = ['T', 'O', 'O', 'T'];
     let mut score = 0;
     let mut match_count = 0;
     let mut empty_count = 0;
@@ -255,6 +253,7 @@ fn check_sequence_score(
             opponent_count += 1;
         }
     }
+
     if opponent_count == 4 {
         score -= win_score * 2;
     } else {
@@ -265,7 +264,7 @@ fn check_sequence_score(
             3 => {
                 // OTT_ (Good) vs. OTTT (Bad)
                 if empty_count == 1 {
-                    score += advance_score * 5; // Increase score for winning sequences
+                    score += advance_score; // Increase score for winning sequences
                 } else {
                     score -= block_score;
                 }
@@ -291,7 +290,7 @@ fn check_sequence_score(
                     score -= block_advance_score * 2;
                 } else if empty_count == 1 && opponent_count == 3 {
                     // TTT_, _TTT, T_TT
-                    score -= win_score * 2;
+                    score -= block_score;
                 } else if empty_count == 0 && opponent_count == 3 {
                     score += block_score;
                 }
@@ -310,34 +309,6 @@ fn check_sequence_score(
         }
     }
 
-    // // Penalize if placing the third 'O' or 'T' without blocking TOOT
-    // if (piece == 'O' && opponent_count < 2 && sequence[0] == 'O')
-    //     || (piece == 'T' && opponent_count < 2 && sequence[0] == 'T')
-    // {
-    //     score -= block_score;
-    // }
-
-    // // Award sequences with potential to form OTTO or TTOO
-    // if match_count == 2 && empty_count == 2 && (piece == 'O' || piece == 'T') {
-    //     if sequence == otto {
-    //         score += win_score;
-    //     }
-    // }
-
-    // // Award sequences of 4 that match the desired patterns
-    // if match_count == 3 && empty_count == 1 {
-    //     if (piece == 'O' && sequence[0] == 'O') || (piece == 'T' && sequence[0] == 'T') {
-    //         score += advance_score;
-    //     } else if piece == 'O' && sequence[3] == 'O' {
-    //         score += advance_score;
-    //     }
-    // }
-
-    // // Punish for three or more consecutive T's
-    // if match_count >= 3 && piece == 'T' {
-    //     score -= block_score;
-    // }
-
     score
 }
 
@@ -350,7 +321,7 @@ fn evaluate_board(board: &Vec<Vec<(char, usize)>>, piece: char) -> isize {
     const BLOCK_ADVANCE_SCORE: isize = 10; // Increased block advance score
 
     let otto = ['O', 'T', 'T', 'O'];
-    let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
+    let directions = [(0, 1), (1, 0), (1, 1), (1, -1), (-1, 1)];
 
     for y in 0..DEFAULT_OT_ROWS {
         for x in 0..DEFAULT_OT_COLS {
@@ -404,12 +375,6 @@ fn negamax(
         if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
             let mut new_board = board.clone();
             new_board[row][col] = (piece, player_turn);
-
-            // Log the row and piece being checked
-            web_sys::console::log_1(
-                &format!("Checking row {} at col {} with piece {}", row, col, piece).into(),
-            );
-
             for &next_piece in &['T', 'O'] {
                 let (_, value) = negamax(
                     &new_board,
@@ -422,7 +387,7 @@ fn negamax(
                 );
 
                 let value = -value;
-                if value > best_value {
+                if value >= best_value {
                     best_value = value;
                     best_col = col; // Update best_col here
                 }
@@ -433,14 +398,6 @@ fn negamax(
             }
         }
     }
-
-    web_sys::console::log_1(
-        &format!(
-            "Best col: {}, Best score: {}, Checking piece: {}",
-            best_col, best_value, piece,
-        )
-        .into(),
-    );
 
     (best_col, best_value)
 }
@@ -473,6 +430,11 @@ fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
             .find(|&r| board[r][best_col].0 == ' ')
         {
             board[row][best_col] = (best_piece, player_turn);
+            // Prevent computer from making player win
+            if check_winner(board) == Some(1) {
+                let opposite_piece = if best_piece == 'O' { 'T' } else { 'O' };
+                board[row][best_col] = (opposite_piece, player_turn);
+            }
         }
     }
 }
