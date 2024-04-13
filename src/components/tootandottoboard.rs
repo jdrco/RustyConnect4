@@ -12,7 +12,8 @@ pub fn TootAndOttoBoard() -> Html {
     let player_choice = use_state(|| 'T');
     let winner = use_state(|| None::<usize>);
     let difficulty = use_state(|| "Easy".to_string());
-    let last_move = use_state(|| None::<(usize, usize)>);
+    let player_t_count = use_state(|| 6);
+    let player_o_count = use_state(|| 6);
 
     let handle_click = {
         let board = board.clone();
@@ -20,6 +21,8 @@ pub fn TootAndOttoBoard() -> Html {
         let player_choice = player_choice.clone();
         let winner = winner.clone();
         let difficulty = difficulty.clone();
+        let player_t_count = player_t_count.clone();
+        let player_o_count = player_o_count.clone();
         Callback::from(move |x: usize| {
             if winner.is_none() {
                 let mut new_board = (*board).clone();
@@ -27,28 +30,45 @@ pub fn TootAndOttoBoard() -> Html {
                     .rev()
                     .find(|&y| new_board[y][x].0 == ' ')
                 {
-                    new_board[y][x] = (*player_choice, *player_turn);
-                    if let Some(win_player) = check_winner(&new_board) {
-                        winner.set(Some(win_player));
-                    } else if is_full_board(&new_board) {
-                        winner.set(Some(3));
-                    } else {
-                        player_turn.set(2);
+                    let current_choice = *player_choice;
+                    let mut valid_move = false;
 
-                        if *difficulty == "Hard" {
-                            make_computer_move(&mut new_board);
-                        } else {
-                            make_random_computer_move(&mut new_board);
-                        }
+                    if current_choice == 'T' && *player_t_count > 0 {
+                        player_t_count.set(*player_t_count - 1);
+                        valid_move = true;
+                    } else if current_choice == 'O' && *player_o_count > 0 {
+                        player_o_count.set(*player_o_count - 1);
+                        valid_move = true;
+                    }
+
+                    if valid_move {
+                        new_board[y][x] = (current_choice, *player_turn);
                         if let Some(win_player) = check_winner(&new_board) {
                             winner.set(Some(win_player));
-                        } else if is_full_board(&new_board) {
+                        } else if is_full_board(&new_board)
+                            || (*player_t_count == 0 && *player_o_count == 0)
+                        {
                             winner.set(Some(3));
                         } else {
-                            player_turn.set(1);
+                            player_turn.set(3 - *player_turn);
+
+                            if *difficulty == "Hard" {
+                                make_computer_move(&mut new_board);
+                            } else {
+                                make_random_computer_move(&mut new_board);
+                            }
+                            if let Some(win_player) = check_winner(&new_board) {
+                                winner.set(Some(win_player));
+                            } else if is_full_board(&new_board)
+                                || (*player_t_count == 0 && *player_o_count == 0)
+                            {
+                                winner.set(Some(3));
+                            } else {
+                                player_turn.set(1);
+                            }
                         }
+                        board.set(new_board);
                     }
-                    board.set(new_board);
                 }
             }
         })
@@ -83,29 +103,18 @@ pub fn TootAndOttoBoard() -> Html {
                         onchange={handle_difficulty_change}/>
                     <label for="difficulty_hard">{"Hard mode (Play against minimax AI)"}</label>
             </div>
-            <div>
-                <input type="radio" id="choose_t" name="player_choice" value="T"
-                       checked={*player_choice == 'T'}
-                       onchange={handle_option_change.clone()}/>
-                <label for="choose_t">{"Choose T"}</label>
-
-                <input type="radio" id="choose_o" name="player_choice" value="O"
-                       checked={*player_choice == 'O'}
-                       onchange={handle_option_change}/>
-                <label for="choose_o">{"Choose O"}</label>
-            </div>
             <div class="post">
-                <br/>
-                <h4>{"Player Turn: "}{if *player_turn == 1 { "Player 1 (Red)" } else { "Player 2 (Yellow)" }}</h4>
-                <small>{"Choose 'T' or 'O' to play."}</small>
-                <br/>
+            <br/>
+            <h4>{"Player Turn: "}{if *player_turn == 1 { "Player 1 (Red)" } else { "Player 2 (Yellow)" }}</h4>
+            <small>{"Choose 'T' or 'O' to play."}</small>
+            <br/>
             </div>
-             <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
-                { for (0..DEFAULT_OT_ROWS).map(|y| html! {
+            <div id="gameboard" class="w-[500px] border border-black bg-boardPrimaryBg">
+            { for (0..DEFAULT_OT_ROWS).map(|y| html! {
                     <div class="flex justify-center items-center gap-4 my-4">
                         { for (0..DEFAULT_OT_COLS).map(|x| html! {
                             <div onclick={handle_click.reform(move |_| x)}
-                                 class={
+                            class={
                                     let base_class = "w-12 h-12 rounded-full flex items-center justify-center text-xl text-black";
                                     let color_class = if board[y][x].1 == 1 {
                                         "bg-chipPrimaryBg"
@@ -115,13 +124,43 @@ pub fn TootAndOttoBoard() -> Html {
                                         "bg-white"
                                     };
                                     format!("{} {}", base_class, color_class)
-                                 }>
+                                }>
                                 { board[y][x].0.to_string() }
+                                </div>
+                            })}
                             </div>
                         })}
-                    </div>
-                })}
-            </div>
+                        </div>
+                        <div>
+                              {
+                        if *player_t_count > 0 {
+                            html! {
+                                <div>
+                                    <input type="radio" id="choose_t" name="player_choice" value="T"
+                                           checked={*player_choice == 'T'}
+                                           onchange={handle_option_change.clone()}/>
+                                    <label for="choose_t">{"Choose T"}</label>
+                                </div>
+                            }
+                        } else {
+                            html! {}
+                        }
+                    }
+                    {
+                        if *player_o_count > 0 {
+                            html! {
+                                <div>
+                                    <input type="radio" id="choose_o" name="player_choice" value="O"
+                                           checked={*player_choice == 'O'}
+                                           onchange={handle_option_change}/>
+                                    <label for="choose_o">{"Choose O"}</label>
+                                </div>
+                            }
+                        } else {
+                            html! {}
+                        }
+                    }
+                        </div>
             { if let Some(winner_player) = *winner {
                 popup_modal(winner_player)
             } else {
