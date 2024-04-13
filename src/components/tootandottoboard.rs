@@ -223,6 +223,7 @@ fn check_sequence_score(
     advance_score: isize,
     block_advance_score: isize,
 ) -> isize {
+    let toot = ['T', 'O', 'O', 'T'];
     let mut score = 0;
     let mut match_count = 0;
     let mut empty_count = 0;
@@ -246,14 +247,12 @@ fn check_sequence_score(
     }
 
     if match_count == sequence.len() - 1 && empty_count == 1 {
-        // Winning condition or blocking
         if piece == sequence[0] {
-            score += win_score;
+            score += win_score; // Increase score for winning sequences
         } else {
             score -= block_score;
         }
     } else {
-        // Advance scoring
         score +=
             (match_count as isize * advance_score) - (empty_count as isize * block_advance_score);
 
@@ -264,38 +263,37 @@ fn check_sequence_score(
             score -= block_score;
         }
 
-        // Penalize if creating TO_T or T_OT
-        if match_count == sequence.len() - 2 && empty_count == 2 {
-            if sequence[0] == piece {
-                score -= block_advance_score;
+        // Award sequences of 4 that match the desired patterns
+        if match_count == 3 && empty_count == 1 {
+            if (piece == 'O' && sequence[0] == 'O') || (piece == 'T' && sequence[0] == 'T') {
+                score += advance_score;
+            } else if piece == 'O' && sequence[3] == 'O' {
+                score += advance_score;
             }
         }
 
-        // Value TT with empty spaces on either side
-        if match_count == sequence.len() && empty_count == 2 {
-            score += win_score;
+        // Punish for three consecutive T's
+        if match_count == 3 && empty_count == 0 && piece == 'T' {
+            score -= block_score;
+        }
+
+        // Penalize for TOOT sequence
+        if sequence == toot {
+            score -= win_score;
         }
     }
-
     score
 }
 
-fn evaluate_board(
-    board: &Vec<Vec<(char, usize)>>,
-    piece: char,
-    num_t: usize,
-    num_o: usize,
-) -> isize {
+fn evaluate_board(board: &Vec<Vec<(char, usize)>>, piece: char) -> isize {
     let mut score = 0;
 
-    const WIN_SCORE: isize = 10000;
-    const TIE_SCORE: isize = 1000; // Assign a score for a tie
-    const BLOCK_SCORE: isize = 15000; // Increased block score
-    const ADVANCE_SCORE: isize = 100;
+    const WIN_SCORE: isize = 15000;
+    const BLOCK_SCORE: isize = 12000; // Increased block score
+    const ADVANCE_SCORE: isize = 200;
     const BLOCK_ADVANCE_SCORE: isize = 200; // Increased block advance score
 
     let otto = ['O', 'T', 'T', 'O'];
-    // let toot = ['T', 'O', 'O', 'T'];
     let directions = [(0, 1), (1, 0), (1, 1), (1, -1)];
 
     for y in 0..DEFAULT_OT_ROWS {
@@ -314,20 +312,6 @@ fn evaluate_board(
                     ADVANCE_SCORE,
                     BLOCK_ADVANCE_SCORE,
                 );
-                // let toot_score = check_sequence_score(
-                //     board,
-                //     x,
-                //     y,
-                //     dx,
-                //     dy,
-                //     &toot,
-                //     piece,
-                //     WIN_SCORE,
-                //     BLOCK_SCORE,
-                //     ADVANCE_SCORE,
-                //     BLOCK_ADVANCE_SCORE,
-                // );
-                // score += otto_score + toot_score;
                 score += otto_score;
 
                 // Penalize placing 'T' beside 'OO' or 'O' beside 'O'
@@ -355,14 +339,6 @@ fn evaluate_board(
         }
     }
 
-    // Adjust scores based on the number of pieces remaining
-    let total_pieces = num_t + num_o;
-    let remaining_t_ratio = num_t as f64 / total_pieces as f64;
-    let remaining_o_ratio = num_o as f64 / total_pieces as f64;
-
-    score += (WIN_SCORE as f64 * remaining_t_ratio) as isize;
-    score += (WIN_SCORE as f64 * remaining_o_ratio) as isize;
-
     score
 }
 
@@ -376,7 +352,7 @@ fn negamax(
     piece: char,
 ) -> (usize, isize) {
     if depth == 0 || check_winner(board).is_some() {
-        let score = evaluate_board(board, piece, 0, 0);
+        let score = evaluate_board(board, piece);
         return (
             usize::MAX,
             if player_turn == current_player {
@@ -444,7 +420,7 @@ fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize) {
     for &current_piece in &['T', 'O'] {
         let (col, value) = negamax(
             board,
-            5,
+            4,
             isize::MIN,
             isize::MAX,
             player_turn,
