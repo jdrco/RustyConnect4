@@ -619,19 +619,16 @@ fn make_random_computer_move(
 
     if let Some(&col) = available_cols.choose(&mut rng) {
         if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
-            let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
-            if computer_choice == 'T' {
-                if player_t_pieces[1] <= 0 {
-                    return;
-                }
+            if rng.gen_bool(0.5) && player_t_pieces[1] > 0 {
                 player_t_pieces[1] -= 1;
-            } else {
-                if player_o_pieces[1] <= 0 {
-                    return;
-                }
+                board[row][col] = ('T', 2);
+            } else if player_o_pieces[1] > 0 {
                 player_o_pieces[1] -= 1;
+                board[row][col] = ('O', 2);
+            } else if player_t_pieces[1] > 0 {
+                player_t_pieces[1] -= 1;
+                board[row][col] = ('T', 2);
             }
-            board[row][col] = (computer_choice, 2);
         }
     }
 }
