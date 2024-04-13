@@ -51,6 +51,14 @@ pub fn burger_menu(props: &Props) -> Html {
         Theme::Tritanopia => "theme-tritanopia",
     };
 
+    let theme_name = match *theme {
+        Theme::Regular => "Regular",
+        Theme::Colorblind => "Colorblind",
+        Theme::Protanopia => "Protanopia",
+        Theme::Deuteranopia => "Deuteranopia",
+        Theme::Tritanopia => "Tritanopia",
+    };
+
     let is_hidden = use_state(|| props.is_hidden);
 
     let toggle_visibility = {
@@ -62,6 +70,7 @@ pub fn burger_menu(props: &Props) -> Html {
 
     html! {
         <div class="relative">
+            <p>{format!("Current Theme: {}", theme_name)}</p>
             <button onclick={toggle_theme} class="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-700 focus:outline-none">
                 {"Toggle Theme"}
             </button>
