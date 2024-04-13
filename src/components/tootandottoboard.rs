@@ -43,15 +43,20 @@ pub fn TootAndOttoBoard() -> Html {
                     .find(|&y| new_board[y][x].0 == ' ')
                 {
                     new_board[y][x] = (*player_choice, *player_turn);
-                    board.set(new_board.clone());
                     last_move.set(Some((x, y)));
                     is_user_turn.set(false);
                     if *player_choice ==  'T' {
-                        new_player_t_pieces[0] -= 1;
-                        player_t_pieces.set(new_player_t_pieces.clone());
+                        if new_player_t_pieces[0] > 0 {
+                            new_player_t_pieces[0] -= 1;
+                            player_t_pieces.set(new_player_t_pieces.clone());
+                            board.set(new_board.clone());
+                        }
                     } else {
-                        new_player_o_pieces[0] -= 1;
-                        player_o_pieces.set(new_player_o_pieces.clone());
+                        if new_player_o_pieces[0] > 0 {
+                            new_player_o_pieces[0] -= 1;
+                            player_o_pieces.set(new_player_o_pieces.clone());
+                            board.set(new_board.clone());
+                        }
                     }
 
                     if let Some(win_player) = check_winner(&new_board) {
@@ -503,12 +508,18 @@ fn make_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_turn: usize, p
             .rev()
             .find(|&r| board[r][best_col].0 == ' ')
         {
-            board[row][best_col] = (best_piece, player_turn);
             if best_piece == 'T' {
+                if player_t_pieces [1] <= 0 {
+                    return;
+                }
                 player_t_pieces[1] -= 1;
             } else {
+                if player_o_pieces [1] <= 0 {
+                    return;
+                }
                 player_o_pieces[1] -= 1;
             }
+            board[row][best_col] = (best_piece, player_turn);
         }
     }
 }
@@ -570,12 +581,18 @@ fn make_random_computer_move(board: &mut Vec<Vec<(char, usize)>>, player_t_piece
     if let Some(&col) = available_cols.choose(&mut rng) {
         if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
             let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
-            board[row][col] = (computer_choice, 2);
             if computer_choice == 'T' {
+                if player_t_pieces [1] <= 0 {
+                    return;
+                }
                 player_t_pieces[1] -= 1;
             } else {
+                if player_o_pieces [1] <= 0 {
+                    return;
+                }
                 player_o_pieces[1] -= 1;
             }
+            board[row][col] = (computer_choice, 2);
         }
     }
 }
