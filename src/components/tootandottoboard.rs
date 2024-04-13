@@ -1,8 +1,6 @@
 use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
 use gloo_timers::callback::Timeout;
 use rand::prelude::*;
-use std::cmp::{max, min};
-use web_sys::console;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
@@ -16,6 +14,34 @@ pub fn TootAndOttoBoard() -> Html {
     let difficulty = use_state(|| "Easy".to_string());
     let last_move = use_state(|| None::<(usize, usize)>);
     let is_user_turn = use_state(|| true);
+    let player_t_count = use_state(|| 6);
+    let player_o_count = use_state(|| 6);
+    let computer_o_count = use_state(|| 6);
+    let computer_t_count = use_state(|| 6);
+
+    let make_random_computer_move = move |board: &mut Vec<Vec<(char, usize)>>| {
+        let computer_t_count = computer_t_count.clone();
+        let computer_o_count = computer_o_count.clone();
+
+        let mut rng = rand::thread_rng();
+        let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
+            .filter(|&col| board[0][col].0 == ' ')
+            .collect();
+
+        if let Some(&col) = available_cols.choose(&mut rng) {
+            if rng.gen_bool(0.5) && *computer_t_count > 0 {
+                computer_t_count.set(*computer_t_count - 1);
+                if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+                    board[row][col] = ('T', 2);
+                }
+            } else if *computer_o_count > 0 {
+                computer_o_count.set(*computer_o_count - 1);
+                if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+                    board[row][col] = ('O', 2);
+                }
+            }
+        }
+    };
 
     let handle_click = {
         let board = board.clone();
@@ -25,6 +51,8 @@ pub fn TootAndOttoBoard() -> Html {
         let difficulty = difficulty.clone();
         let last_move = last_move.clone();
         let is_user_turn = is_user_turn.clone();
+        let player_t_count = player_t_count.clone();
+        let player_o_count = player_o_count.clone();
 
         Callback::from(move |x: usize| {
             if !*is_user_turn {
@@ -36,26 +64,39 @@ pub fn TootAndOttoBoard() -> Html {
                     .rev()
                     .find(|&y| new_board[y][x].0 == ' ')
                 {
-                    new_board[y][x] = (*player_choice, *player_turn);
-                    board.set(new_board.clone());
-                    last_move.set(Some((x, y)));
-                    is_user_turn.set(false);
+                    let current_choice = *player_choice;
+                    let mut valid_move = false;
 
-                    if let Some(win_player) = check_winner(&new_board) {
-                        winner.set(Some(win_player));
-                    } else if is_full_board(&new_board) {
-                        winner.set(Some(3));
-                    } else {
-                        let new_board = new_board.clone();
-                        let last_move = last_move.clone();
-                        let difficulty = difficulty.clone();
-                        let winner = winner.clone();
-                        let player_turn = player_turn.clone();
-                        let is_user_turn = is_user_turn.clone();
-                        let board = board.clone();
-                        player_turn.set(2);
+                    if current_choice == 'T' && *player_t_count > 0 {
+                        player_t_count.set(*player_t_count - 1);
+                        valid_move = true;
+                    } else if current_choice == 'O' && *player_o_count > 0 {
+                        player_o_count.set(*player_o_count - 1);
+                        valid_move = true;
+                    }
 
-                        let timeout = Timeout::new(500, move || {
+                    if valid_move {
+                        new_board[y][x] = (current_choice, *player_turn);
+                        board.set(new_board.clone());
+                        last_move.set(Some((x, y)));
+                        is_user_turn.set(false);
+
+                        if let Some(win_player) = check_winner(&new_board) {
+                            winner.set(Some(win_player));
+                        } else if is_full_board(&new_board)
+                            || (*player_t_count == 0 && *player_o_count == 0)
+                        {
+                            winner.set(Some(3));
+                        } else {
+                            let new_board = new_board.clone();
+                            let last_move = last_move.clone();
+                            let difficulty = difficulty.clone();
+                            let winner = winner.clone();
+                            let player_turn = player_turn.clone();
+                            let is_user_turn = is_user_turn.clone();
+                            let board = board.clone();
+                            player_turn.set(2);
+
                             let difficulty = difficulty.clone();
                             let mut new_board = new_board;
                             if *difficulty == "Hard" {
@@ -73,8 +114,7 @@ pub fn TootAndOttoBoard() -> Html {
                             }
                             board.set(new_board);
                             is_user_turn.set(true);
-                        });
-                        timeout.forget();
+                        }
                     }
                 }
             }
@@ -110,17 +150,6 @@ pub fn TootAndOttoBoard() -> Html {
                         onchange={handle_difficulty_change}/>
                     <label for="difficulty_hard">{"Hard mode (Play against minimax AI)"}</label>
             </div>
-            <div>
-                <input type="radio" id="choose_t" name="player_choice" value="T"
-                       checked={*player_choice == 'T'}
-                       onchange={handle_option_change.clone()}/>
-                <label for="choose_t">{"Choose T"}</label>
-
-                <input type="radio" id="choose_o" name="player_choice" value="O"
-                       checked={*player_choice == 'O'}
-                       onchange={handle_option_change}/>
-                <label for="choose_o">{"Choose O"}</label>
-            </div>
             <div class="post">
                 <br/>
                 <h4>{"Player Turn: "}{if *player_turn == 1 { "Player 1 (Red)" } else { "Player 2 (Yellow)" }}</h4>
@@ -151,6 +180,36 @@ pub fn TootAndOttoBoard() -> Html {
                     </div>
                 })}
             </div>
+             <div>
+                              {
+                        if *player_t_count > 0 {
+                            html! {
+                                <div>
+                                    <input type="radio" id="choose_t" name="player_choice" value="T"
+                                           checked={*player_choice == 'T'}
+                                           onchange={handle_option_change.clone()}/>
+                                    <label for="choose_t">{"Choose T"}</label>
+                                </div>
+                            }
+                        } else {
+                            html! {}
+                        }
+                    }
+                    {
+                        if *player_o_count > 0 {
+                            html! {
+                                <div>
+                                    <input type="radio" id="choose_o" name="player_choice" value="O"
+                                           checked={*player_choice == 'O'}
+                                           onchange={handle_option_change.clone()}/>
+                                    <label for="choose_o">{"Choose O"}</label>
+                                </div>
+                            }
+                        } else {
+                            html! {}
+                        }
+                    }
+                        </div>
             { if let Some(winner_player) = *winner {
                 popup_modal(winner_player)
             } else {
@@ -309,34 +368,6 @@ fn check_sequence_score(
             _ => {}
         }
     }
-
-    // // Penalize if placing the third 'O' or 'T' without blocking TOOT
-    // if (piece == 'O' && opponent_count < 2 && sequence[0] == 'O')
-    //     || (piece == 'T' && opponent_count < 2 && sequence[0] == 'T')
-    // {
-    //     score -= block_score;
-    // }
-
-    // // Award sequences with potential to form OTTO or TTOO
-    // if match_count == 2 && empty_count == 2 && (piece == 'O' || piece == 'T') {
-    //     if sequence == otto {
-    //         score += win_score;
-    //     }
-    // }
-
-    // // Award sequences of 4 that match the desired patterns
-    // if match_count == 3 && empty_count == 1 {
-    //     if (piece == 'O' && sequence[0] == 'O') || (piece == 'T' && sequence[0] == 'T') {
-    //         score += advance_score;
-    //     } else if piece == 'O' && sequence[3] == 'O' {
-    //         score += advance_score;
-    //     }
-    // }
-
-    // // Punish for three or more consecutive T's
-    // if match_count >= 3 && piece == 'T' {
-    //     score -= block_score;
-    // }
 
     score
 }
@@ -522,19 +553,5 @@ pub fn TootAndOttoRules() -> Html {
                 <p>{"For More information on TOOT-OTTO click "}<a href="https://boardgamegeek.com/boardgame/19530/toot-and-otto">{"here"}</a></p>
             </div>
         </div>
-    }
-}
-
-fn make_random_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
-    let mut rng = rand::thread_rng();
-    let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
-        .filter(|&col| board[0][col].0 == ' ')
-        .collect();
-
-    if let Some(&col) = available_cols.choose(&mut rng) {
-        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
-            let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
-            board[row][col] = (computer_choice, 2);
-        }
     }
 }
