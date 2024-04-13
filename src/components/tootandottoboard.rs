@@ -1,8 +1,6 @@
 use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
 use gloo_timers::callback::Timeout;
 use rand::prelude::*;
-use std::cmp::{max, min};
-use web_sys::console;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
