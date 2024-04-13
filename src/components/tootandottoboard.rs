@@ -475,8 +475,24 @@ fn make_computer_move(
     let mut best_col = usize::MAX;
     let mut best_value = isize::MIN;
     let mut best_piece = 'T';
-
-    for &current_piece in &['T', 'O'] {
+    if player_t_pieces[1] > 0 && player_o_pieces[1] > 0 {
+        for &current_piece in &['T', 'O'] {
+            let (col, value) = negamax(
+                board,
+                5,
+                isize::MIN,
+                isize::MAX,
+                player_turn,
+                player_turn,
+                current_piece,
+            );
+            if value > best_value && col < DEFAULT_OT_COLS {
+                best_value = value;
+                best_col = col;
+                best_piece = current_piece;
+            }
+        }
+    } else if player_t_pieces[1] > 0 {
         let (col, value) = negamax(
             board,
             5,
@@ -484,13 +500,24 @@ fn make_computer_move(
             isize::MAX,
             player_turn,
             player_turn,
-            current_piece,
+            'T',
         );
-        if value > best_value && col < DEFAULT_OT_COLS {
-            best_value = value;
-            best_col = col;
-            best_piece = current_piece;
-        }
+        best_value = value;
+        best_col = col;
+        best_piece = 'T';
+    } else if player_o_pieces[1] > 0 {
+        let (col, value) = negamax(
+            board,
+            5,
+            isize::MIN,
+            isize::MAX,
+            player_turn,
+            player_turn,
+            'O',
+        );
+        best_value = value;
+        best_col = col;
+        best_piece = 'O';
     }
 
     if best_col <= DEFAULT_OT_COLS {
@@ -509,10 +536,23 @@ fn make_computer_move(
                 }
                 player_o_pieces[1] -= 1;
             }
+
             board[row][best_col] = (best_piece, player_turn);
             // Prevent computer from making player win
             if check_winner(board) == Some(1) {
-                let opposite_piece = if best_piece == 'O' { 'T' } else { 'O' };
+                let opposite_piece = if best_piece == 'O' {
+                    if player_t_pieces[1] > 0 {
+                        'T'
+                    } else {
+                        'O'
+                    }
+                } else {
+                    if player_o_pieces[1] > 0 {
+                        'O'
+                    } else {
+                        'T'
+                    }
+                };
                 board[row][best_col] = (opposite_piece, player_turn);
             }
         }
