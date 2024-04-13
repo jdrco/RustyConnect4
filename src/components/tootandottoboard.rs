@@ -2,6 +2,7 @@ use crate::constant::{DEFAULT_OT_COLS, DEFAULT_OT_ROWS, HEADER, RED_BAR};
 use rand::prelude::*;
 use std::cmp::{max, min};
 use web_sys::console;
+use gloo_timers::callback::Timeout;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 use yew::{function_component, html};
@@ -14,6 +15,7 @@ pub fn TootAndOttoBoard() -> Html {
     let winner = use_state(|| None::<usize>);
     let difficulty = use_state(|| "Easy".to_string());
     let last_move = use_state(|| None::<(usize, usize)>);
+    let is_user_turn = use_state(|| true);
 
     let handle_click = {
         let board = board.clone();
@@ -22,52 +24,57 @@ pub fn TootAndOttoBoard() -> Html {
         let winner = winner.clone();
         let difficulty = difficulty.clone();
         let last_move = last_move.clone();
+        let is_user_turn = is_user_turn.clone();
+
         Callback::from(move |x: usize| {
-            if winner.is_none() && !is_full_board(&(*board)) {
+            if !*is_user_turn {
+                return;
+            }
+            if winner.is_none() {
                 let mut new_board = (*board).clone();
                 if let Some(y) = (0..DEFAULT_OT_ROWS)
                     .rev()
                     .find(|&y| new_board[y][x].0 == ' ')
                 {
-                    let current_player = *player_turn;
-                    let current_choice = *player_choice;
-                    let player_piece_count = new_board
-                        .iter()
-                        .flatten()
-                        .filter(|&&(c, p)| c == current_choice && p == current_player)
-                        .count();
-                    // let computer_piece_count = new_board
-                    //     .iter()
-                    //     .flatten()
-                    //     .filter(|&&(c, p)| c == current_choice && p != current_player)
-                    //     .count();
-                    if (current_choice == 'T' && player_piece_count < 6)
-                        || (current_choice == 'O' && player_piece_count < 6)
-                    {
-                        new_board[y][x] = (current_choice, current_player);
-                        if let Some(win_player) = check_winner(&new_board) {
-                            winner.set(Some(win_player));
-                        } else if is_full_board(&new_board) {
-                            winner.set(Some(3));
-                        } else {
-                            player_turn.set(3 - current_player);
-                            board.set(new_board.clone());
-                            last_move.set(Some((x, y)));
+                    new_board[y][x] = (*player_choice, *player_turn);
+                    board.set(new_board.clone());
+                    last_move.set(Some((x, y)));
+                    is_user_turn.set(false);
 
+                    if let Some(win_player) = check_winner(&new_board) {
+                        winner.set(Some(win_player));
+                    } else if is_full_board(&new_board) {
+                        winner.set(Some(3));
+                    } else {
+                        let new_board = new_board.clone();
+                        let last_move = last_move.clone();
+                        let difficulty = difficulty.clone();
+                        let winner = winner.clone();
+                        let player_turn = player_turn.clone();
+                        let is_user_turn = is_user_turn.clone();
+                        let board = board.clone();
+                        player_turn.set(2);
+
+                        let timeout = Timeout::new(500, move || {
+                            let difficulty = difficulty.clone();
+                            let mut new_board = new_board;
                             if *difficulty == "Hard" {
                                 make_computer_move(&mut new_board, 2);
                             } else {
                                 make_random_computer_move(&mut new_board);
                             }
+                            last_move.set(Some((x, y)));
                             if let Some(win_player) = check_winner(&new_board) {
                                 winner.set(Some(win_player));
                             } else if is_full_board(&new_board) {
                                 winner.set(Some(3));
                             } else {
-                                player_turn.set(current_player);
+                                player_turn.set(1);
                             }
                             board.set(new_board);
-                        }
+                            is_user_turn.set(true);
+                        });
+                        timeout.forget();
                     }
                 }
             }
@@ -127,6 +134,8 @@ pub fn TootAndOttoBoard() -> Html {
                             <div onclick={handle_click.reform(move |_| x)}
                                  class={
                                     let base_class = "w-12 h-12 rounded-full flex items-center justify-center text-xl text-black";
+                                    let is_last_move = *last_move == Some((x, y));
+                                    let animation_class = if is_last_move { "animate-drop" } else { "" };
                                     let color_class = if board[y][x].1 == 1 {
                                         "bg-chipPrimaryBg"
                                     } else if board[y][x].1 == 2 {
@@ -134,7 +143,7 @@ pub fn TootAndOttoBoard() -> Html {
                                     } else {
                                         "bg-white"
                                     };
-                                    format!("{} {}", base_class, color_class)
+                                    format!("{} {} {}", base_class, color_class, animation_class)
                                  }>
                                 { board[y][x].0.to_string() }
                             </div>
