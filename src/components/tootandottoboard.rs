@@ -14,6 +14,32 @@ pub fn TootAndOttoBoard() -> Html {
     let difficulty = use_state(|| "Easy".to_string());
     let player_t_count = use_state(|| 6);
     let player_o_count = use_state(|| 6);
+    let computer_o_count = use_state(|| 6);
+    let computer_t_count = use_state(|| 6);
+
+    let make_random_computer_move = move |board: &mut Vec<Vec<(char, usize)>>| {
+        let computer_t_count = computer_t_count.clone();
+        let computer_o_count = computer_o_count.clone();
+
+        let mut rng = rand::thread_rng();
+        let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
+            .filter(|&col| board[0][col].0 == ' ')
+            .collect();
+
+        if let Some(&col) = available_cols.choose(&mut rng) {
+            if rng.gen_bool(0.5) && *computer_t_count > 0 {
+                computer_t_count.set(*computer_t_count - 1);
+                if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+                    board[row][col] = ('T', 2);
+                }
+            } else if *computer_o_count > 0 {
+                computer_o_count.set(*computer_o_count - 1);
+                if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
+                    board[row][col] = ('O', 2);
+                }
+            }
+        }
+    };
 
     let handle_click = {
         let board = board.clone();
@@ -194,9 +220,9 @@ fn check_winner(board: &Vec<Vec<(char, usize)>>) -> Option<usize> {
     }
 
     match (found_toot, found_otto) {
-        (true, false) => Some(1), // Player 1 wins with TOOT
-        (false, true) => Some(2), // Player 2 wins with OTTO
-        (true, true) => Some(3),  // Both sequences formed, possible in rare scenarios
+        (true, false) => Some(1),
+        (false, true) => Some(2),
+        (true, true) => Some(3),
         _ => None,
     }
 }
@@ -421,8 +447,6 @@ fn popup_modal(winner: usize) -> Html {
     }
 }
 
-// Add code here
-
 #[function_component]
 pub fn TootAndOttoRules() -> Html {
     html! {
@@ -430,7 +454,7 @@ pub fn TootAndOttoRules() -> Html {
             <div class="container mx-auto mt-12" id="services">
                 <h5 class={HEADER}><b>{"How to Play TOOT-OTTO"}</b></h5>
                 <div class={RED_BAR}/>
-                <p>{"TOOT-OTTO is a fun strategy game for older players who like tic-tac-toe and checkers. One player is TOOT and the other player is OTTO. Both players can place both T's and O's, based on their choice. The first player who spells his or her winning combination - horizontally, vertically or diagonally - wins!"}</p>
+                <p>{"TOOT-OTTO is a fun strategy game for older players who like tic-tac-toe and checkers. One player is TOOT and the other player is OTTO. Both players can place both T's and O's, based on their choice. The first player who spells his or her winning combination - horizontally, vertically or diagonally - wins! Note: Each user only gets to use 6 T's and O's"}</p>
                 <br/>
                 <div><h5>{"To play TOOT-OTTO follow the following steps:"}</h5></div>
                 <ul>
@@ -443,19 +467,5 @@ pub fn TootAndOttoRules() -> Html {
                 <p>{"For More information on TOOT-OTTO click "}<a href="https://boardgamegeek.com/boardgame/19530/toot-and-otto">{"here"}</a></p>
             </div>
         </div>
-    }
-}
-
-fn make_random_computer_move(board: &mut Vec<Vec<(char, usize)>>) {
-    let mut rng = rand::thread_rng();
-    let available_cols: Vec<usize> = (0..DEFAULT_OT_COLS)
-        .filter(|&col| board[0][col].0 == ' ')
-        .collect();
-
-    if let Some(&col) = available_cols.choose(&mut rng) {
-        if let Some(row) = (0..DEFAULT_OT_ROWS).rev().find(|&r| board[r][col].0 == ' ') {
-            let computer_choice = if rng.gen_bool(0.5) { 'T' } else { 'O' };
-            board[row][col] = (computer_choice, 2);
-        }
     }
 }
